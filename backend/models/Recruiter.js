@@ -213,7 +213,6 @@ recruiterSchema.methods.toJSON = function() {
 
 // Index for search optimization
 recruiterSchema.index({ companyName: 'text', industry: 'text', headquarters: 'text' });
-recruiterSchema.index({ email: 1 });
 recruiterSchema.index({ isActive: 1, isVerified: 1 });
 
 const Recruiter = mongoose.model('Recruiter', recruiterSchema);
