@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import connectDB from './config/db.js';
 import connectCloudinary from './config/cloudinary.js';
+import scheduleAwake from './utils/cronScheduler.js';
 
 // Route imports
 import authRoutes from './routes/authRoutes.js';
@@ -120,6 +121,9 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌐 API URL: http://localhost:${PORT}`);
+  
+  // Start cron scheduler for keep-alive functionality
+  scheduleAwake();
 });
 
 // Handle unhandled promise rejections
