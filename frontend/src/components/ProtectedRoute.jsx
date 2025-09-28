@@ -1,35 +1,38 @@
-// src/components/ProtectedRoute.jsx
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import LoadingSpinner from './LoadingSpinner';
 
 const ProtectedRoute = ({ children, requiredRole = null }) => {
-  const token = localStorage.getItem('token');
-  const userStr = localStorage.getItem('user');
-  
-  if (!token || !userStr) {
-    return <Navigate to="/login" replace />;
+  const { user, loading, isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  // Still loading auth state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
   }
 
-  try {
-    const user = JSON.parse(userStr);
+  // Not authenticated - redirect to auth selection
+  if (!isAuthenticated()) {
+    return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  // Check role requirement if specified
+  if (requiredRole && user?.role !== requiredRole) {
+    // Show unauthorized message and redirect to appropriate dashboard
+    console.warn(`Access denied: User role '${user?.role}' attempted to access '${requiredRole}' only area`);
     
-    // If a specific role is required, check it
-    if (requiredRole && user.role !== requiredRole) {
-      // Redirect to appropriate dashboard based on their actual role
-      if (user.role === 'recruiter') {
-        return <Navigate to="/recruiter-dashboard" replace />;
-      } else {
-        return <Navigate to="/user-dashboard" replace />;
-      }
-    }
-
-    return children;
-  } catch (error) {
-    // If user data is corrupted, clear storage and redirect
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    return <Navigate to="/login" replace />;
+    // Redirect to appropriate dashboard based on user's actual role
+    const redirectPath = user?.role === 'recruiter' ? '/recruiter-dashboard' : '/user-dashboard';
+    return <Navigate to={redirectPath} replace />;
   }
+
+  // All checks passed - render the protected component
+  return children;
 };
 
 export default ProtectedRoute;

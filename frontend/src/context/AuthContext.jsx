@@ -35,6 +35,12 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = (userData, authToken) => {
+    // Validate user role
+    if (!userData.role || !['user', 'recruiter'].includes(userData.role)) {
+      console.error('Invalid user role:', userData.role);
+      return;
+    }
+
     setUser(userData);
     setToken(authToken);
     localStorage.setItem('token', authToken);

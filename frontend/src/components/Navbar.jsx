@@ -76,13 +76,13 @@ const Navbar = () => {
         <div className="hidden md:flex gap-4 items-center">
           <button 
             className="text-gray-700 hover:text-blue-800 font-medium transition-colors"
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/auth')}
           >
             Login
           </button>
           <button 
             className="bg-gradient-to-r from-blue-800 to-teal-700 text-white px-6 py-2 rounded-lg hover:from-blue-900 hover:to-teal-800 transition-all shadow-lg"
-            onClick={() => navigate('/signup')}
+            onClick={() => navigate('/auth')}
           >
             Sign Up
           </button>
@@ -140,7 +140,7 @@ const Navbar = () => {
                 <button 
                   className="text-gray-700 hover:text-blue-800 font-medium transition-colors text-left py-2"
                   onClick={() => {
-                    navigate('/login');
+                    navigate('/auth');
                     setIsMobileMenuOpen(false);
                   }}
                 >
@@ -149,7 +149,7 @@ const Navbar = () => {
                 <button 
                   className="bg-gradient-to-r from-blue-800 to-teal-700 text-white px-6 py-3 rounded-lg hover:from-blue-900 hover:to-teal-800 transition-all text-center"
                   onClick={() => {
-                    navigate('/signup');
+                    navigate('/auth');
                     setIsMobileMenuOpen(false);
                   }}
                 >

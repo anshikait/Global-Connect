@@ -29,7 +29,7 @@ const Hero = () => {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
             <button 
-              onClick={() => navigate('/signup')}
+              onClick={() => navigate('/auth')}
               className="bg-white text-slate-800 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition-all shadow-lg"
             >
               Join Global Connect
