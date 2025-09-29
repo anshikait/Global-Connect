@@ -2,7 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import connectDB from './config/db.js';
-import {connectCloudinary} from './config/cloudinary.js';
+import connectCloudinary from './config/cloudinary.js'
 import scheduleAwake from './utils/cronScheduler.js';
 
 // Model imports (to ensure they're loaded)
