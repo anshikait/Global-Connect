@@ -227,7 +227,11 @@ export const getUserProfile = async (req, res) => {
       isProfileComplete: user.isProfileComplete,
       lastLogin: user.lastLogin,
       createdAt: user.createdAt,
-      updatedAt: user.updatedAt
+      updatedAt: user.updatedAt,
+      // Resume fields
+      resume: user.resume,
+      resumeOriginalName: user.resumeOriginalName,
+      resumeUploadedAt: user.resumeUploadedAt
     };
 
     res.status(200).json({

@@ -1,6 +1,8 @@
+import mongoose from 'mongoose';
 import User from '../models/User.js';
-import cloudinary from 'cloudinary';
-
+import Job from '../models/Job.js';
+import JobApplication from '../models/JobApplication.js';
+import { v2 as cloudinary } from 'cloudinary';
 // @desc    Get user profile
 // @route   GET /api/users/profile
 // @access  Private (Users only)
@@ -181,6 +183,140 @@ export const uploadProfilePicture = async (req, res) => {
   }
 };
 
+export const uploadResume = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: "Please upload a resume (PDF)" });
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    // Delete old resume if exists
+    if (user.resume) {
+      const publicId = user.resume.split("/").pop().split(".")[0];
+      await cloudinary.uploader.destroy(`global-connect/resumes/${publicId}`, { resource_type: "raw" });
+    }
+
+    // Upload new resume
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      resource_type: "raw",
+      folder: "global-connect/resumes",
+      public_id: `resume_${user._id}_${Date.now()}`,
+      format: "pdf",
+    });
+
+    user.resume = result.secure_url;
+    user.resumeOriginalName = req.file.originalname;
+    user.resumeUploadedAt = new Date();
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Resume uploaded",
+      data: {
+        resume: user.resume,
+        resumeOriginalName: user.resumeOriginalName,
+        resumeUploadedAt: user.resumeUploadedAt,
+      },
+    });
+  } catch (error) {
+    console.error("Upload resume error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// Delete resume
+export const deleteResume = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user || !user.resume) return res.status(404).json({ success: false, message: "No resume found" });
+
+    const publicId = user.resume.split("/").pop().split(".")[0];
+    await cloudinary.uploader.destroy(`global-connect/resumes/${publicId}`, { resource_type: "raw" });
+
+    user.resume = null;
+    user.resumeOriginalName = null;
+    user.resumeUploadedAt = null;
+    await user.save();
+
+    res.json({ success: true, message: "Resume deleted" });
+  } catch (error) {
+    console.error("Delete resume error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+// @desc    Get all available jobs
+// @route   GET /api/users/jobs
+// @access  Private (Users only)
+export const getAllJobs = async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 20, 
+      search, 
+      location, 
+      type, 
+      level, 
+      department,
+      salary_min,
+      salary_max 
+    } = req.query;
+
+    // Build query
+    let query = { isActive: true };
+
+    if (search) {
+      query.$text = { $search: search };
+    }
+
+    if (location) {
+      query.location = { $regex: location, $options: 'i' };
+    }
+
+    if (type && type !== 'all') {
+      query.type = type;
+    }
+
+    if (level && level !== 'all') {
+      query.level = level;
+    }
+
+    if (department && department !== 'all') {
+      query.department = department;
+    }
+
+    if (salary_min || salary_max) {
+      query.salary = {};
+      if (salary_min) query.salary.$gte = parseInt(salary_min);
+      if (salary_max) query.salary.$lte = parseInt(salary_max);
+    }
+
+    const jobs = await Job.find(query)
+      .populate('recruiterId', 'companyName profileImage location')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
+
+    const totalJobs = await Job.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      jobs,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalJobs / parseInt(limit)),
+        totalJobs
+      }
+    });
+
+  } catch (error) {
+    console.error('Get all jobs error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
 // @desc    Apply for a job
 // @route   POST /api/users/apply/:jobId
 // @access  Private (Users only)
@@ -188,13 +324,51 @@ export const applyForJob = async (req, res) => {
   try {
     const { jobId } = req.params;
     const { coverLetter } = req.body;
+    const userId = req.user.id;
 
-    const user = await User.findById(req.user.id);
+    console.log('Applying for job:', { jobId, userId, coverLetter });
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid job ID format'
+      });
+    }
+
+    // Check if user exists and has required profile data
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Check if user has uploaded resume
+    if (!user.resume) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please upload your resume before applying to jobs'
+      });
+    }
+
+    // Check if job exists and is active
+    const job = await Job.findOne({ _id: jobId, isActive: true });
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found or no longer active'
+      });
+    }
+
+    console.log('Job found:', { jobTitle: job.title, companyName: job.companyName });
 
     // Check if already applied
-    const existingApplication = user.jobApplications.find(
-      app => app.jobId.toString() === jobId
-    );
+    const existingApplication = await JobApplication.findOne({
+      jobId,
+      applicantId: userId
+    });
 
     if (existingApplication) {
       return res.status(400).json({
@@ -203,26 +377,52 @@ export const applyForJob = async (req, res) => {
       });
     }
 
-    // Add job application
-    user.jobApplications.push({
+    // Create new job application with explicit field population
+    const application = new JobApplication({
       jobId,
-      appliedAt: new Date(),
-      status: 'pending',
-      coverLetter: coverLetter?.trim() || ''
+      applicantId: userId,
+      recruiterId: job.recruiterId,
+      applicantName: user.name || 'Unknown',
+      applicantEmail: user.email,
+      applicantPhone: user.phone || '',
+      applicantPhoto: user.profileImage || '',
+      resumeUrl: user.resume,
+      coverLetter: coverLetter?.trim() || '',
+      jobTitle: job.title,
+      jobLocation: job.location,
+      companyName: job.companyName
     });
 
-    await user.save();
+    console.log('Creating application with data:', {
+      jobId: application.jobId,
+      applicantId: application.applicantId,
+      recruiterId: application.recruiterId,
+      applicantName: application.applicantName,
+      jobTitle: application.jobTitle
+    });
+
+    await application.save();
+
+    console.log('Application saved successfully:', application._id);
 
     res.status(200).json({
       success: true,
-      message: 'Job application submitted successfully'
+      message: 'Job application submitted successfully',
+      application: {
+        _id: application._id,
+        jobTitle: application.jobTitle,
+        companyName: application.companyName,
+        status: application.status,
+        appliedAt: application.appliedAt
+      }
     });
 
   } catch (error) {
     console.error('Apply for job error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error: ' + error.message
     });
   }
 };
@@ -233,35 +433,30 @@ export const applyForJob = async (req, res) => {
 export const getUserApplications = async (req, res) => {
   try {
     const { status, page = 1, limit = 10 } = req.query;
+    const userId = req.user.id;
 
-    const user = await User.findById(req.user.id)
-      .populate({
-        path: 'jobApplications.jobId',
-        select: 'title company location salary requirements'
-      });
-
-    let applications = user.jobApplications;
-
-    // Filter by status if provided
-    if (status) {
-      applications = applications.filter(app => app.status === status);
+    // Build query
+    let query = { applicantId: userId };
+    if (status && status !== 'all') {
+      query.status = status;
     }
 
-    // Sort by most recent first
-    applications.sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt));
+    const applications = await JobApplication.find(query)
+      .populate('jobId', 'title location salary companyName type level')
+      .populate('recruiterId', 'companyName profileImage')
+      .sort({ appliedAt: -1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
 
-    // Pagination
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + parseInt(limit);
-    const paginatedApplications = applications.slice(startIndex, endIndex);
+    const totalApplications = await JobApplication.countDocuments(query);
 
     res.status(200).json({
       success: true,
       data: {
-        applications: paginatedApplications,
-        totalApplications: applications.length,
+        applications,
+        totalApplications,
         currentPage: parseInt(page),
-        totalPages: Math.ceil(applications.length / limit)
+        totalPages: Math.ceil(totalApplications / parseInt(limit))
       }
     });
 
