@@ -46,6 +46,36 @@ const ProfileSidebar = ({ profileData, setActiveTab }) => {
           )}
         </div>
 
+        {/* Resume Status */}
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-gray-600">Resume Status</span>
+            {profileData?.resume ? (
+              <div className="flex items-center text-green-600">
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="text-xs">Uploaded</span>
+              </div>
+            ) : (
+              <div className="flex items-center text-red-600">
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span className="text-xs">Missing</span>
+              </div>
+            )}
+          </div>
+          {!profileData?.resume && (
+            <button 
+              onClick={() => setActiveTab('profile')}
+              className="w-full text-xs bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700"
+            >
+              Upload Resume
+            </button>
+          )}
+        </div>
+
         <div className="mt-6 pt-6 border-t border-gray-200">
           <div className="space-y-2">
             <div className="flex justify-between text-sm">

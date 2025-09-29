@@ -75,6 +75,48 @@ const recruiterSchema = new mongoose.Schema({
     type: String, // Company logo
     default: ''
   },
+  
+  // New dashboard profile fields
+  profileImage: {
+    type: String, // Personal profile image
+    default: ''
+  },
+  phone: {
+    type: String,
+    trim: true
+  },
+  companyWebsite: {
+    type: String,
+    trim: true,
+    validate: {
+      validator: function(url) {
+        if (!url) return true; // Optional field
+        return /^https?:\/\/.+\..+/.test(url);
+      },
+      message: 'Please enter a valid website URL'
+    }
+  },
+  location: {
+    type: String,
+    trim: true
+  },
+  bio: {
+    type: String,
+    maxlength: [500, 'Bio cannot exceed 500 characters'],
+    default: ''
+  },
+  linkedinUrl: {
+    type: String,
+    trim: true,
+    validate: {
+      validator: function(url) {
+        if (!url) return true; // Optional field
+        return /^https?:\/\/(www\.)?linkedin\.com\/in\/.+/.test(url);
+      },
+      message: 'Please enter a valid LinkedIn URL'
+    }
+  },
+
   // Contact information
   contactPerson: {
     name: {

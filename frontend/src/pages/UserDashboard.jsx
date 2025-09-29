@@ -7,6 +7,7 @@ import {
   ProfileSidebar,
   FeedTab,
   JobsTab,
+  MessagesTab,
   NetworkTab,
   ProfileTab
 } from '../components/user';
@@ -64,6 +65,7 @@ const UserDashboard = () => {
           <div className="lg:col-span-3">
             {activeTab === 'feed' && <FeedTab />}
             {activeTab === 'jobs' && <JobsTab profileData={profileData} />}
+            {activeTab === 'messages' && <MessagesTab />}
             {activeTab === 'network' && <NetworkTab profileData={profileData} />}
             {activeTab === 'profile' && <ProfileTab profileData={profileData} onUpdate={fetchUserProfile} />}
           </div>

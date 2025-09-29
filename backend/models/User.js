@@ -40,6 +40,17 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  resume: {
+    type: String,
+    default: ''
+  },
+  resumeOriginalName: {
+    type: String,
+    default: ''
+  },
+  resumeUploadedAt: {
+    type: Date
+  },
   experience: [{
     company: {
       type: String,
@@ -149,7 +160,7 @@ const userSchema = new mongoose.Schema({
     max: Number,
     currency: {
       type: String,
-      default: 'USD'
+      default: 'INR'
     }
   },
   availabilityStatus: {

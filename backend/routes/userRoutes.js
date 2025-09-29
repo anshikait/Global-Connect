@@ -1,10 +1,13 @@
 import express from 'express';
 import { authenticate, authorize } from '../middleware/auth.js';
-import { upload } from '../config/cloudinary.js';
+import upload from '../config/multer.js';
 import {
   getUserProfile,
   updateUserProfile,
   uploadProfilePicture,
+  uploadResume,
+  deleteResume,
+  getAllJobs,
   applyForJob,
   getUserApplications,
   sendConnectionRequest,
@@ -15,14 +18,19 @@ const router = express.Router();
 
 // All routes are protected and for users only
 router.use(authenticate);
-router.use(authorize(['user']));
+router.use(authorize('user'));
 
 // Profile routes
 router.get('/profile', getUserProfile);
 router.put('/profile', updateUserProfile);
 router.post('/profile-pic', upload.single('profilePic'), uploadProfilePicture);
 
+// Resume routes
+router.post('/resume', upload.single('resume'), uploadResume);
+router.delete('/resume', deleteResume);
+
 // Job application routes
+router.get('/jobs', getAllJobs);
 router.post('/apply/:jobId', applyForJob);
 router.get('/applications', getUserApplications);
 

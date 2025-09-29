@@ -221,7 +221,7 @@ export const getRecruiterProfile = async (req, res) => {
 
     const recruiterData = {
       id: recruiter._id,
-      name: recruiter.companyName,
+      name: recruiter.name || recruiter.companyName, // Use name if available, fallback to companyName
       email: recruiter.email,
       role: 'recruiter',
       companyName: recruiter.companyName,
@@ -229,9 +229,15 @@ export const getRecruiterProfile = async (req, res) => {
       industry: recruiter.industry,
       companySize: recruiter.companySize,
       website: recruiter.website,
+      companyWebsite: recruiter.companyWebsite,
       headquarters: recruiter.headquarters,
+      location: recruiter.location,
       foundedYear: recruiter.foundedYear,
-      profilePic: recruiter.profilePic,
+      profilePic: recruiter.profilePic, // Company logo
+      profileImage: recruiter.profileImage, // Personal profile image
+      phone: recruiter.phone,
+      bio: recruiter.bio,
+      linkedinUrl: recruiter.linkedinUrl,
       contactPerson: recruiter.contactPerson,
       jobPostings: recruiter.jobPostings,
       applicationsReceived: recruiter.applicationsReceived,

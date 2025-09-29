@@ -49,7 +49,7 @@ function App() {
           }
         />
         <Route 
-          path='/recruiter-dashboard' 
+          path='/recruiter-dashboard/*' 
           element={
             <ProtectedRoute requiredRole="recruiter">
               <RecruiterDashboard/>
