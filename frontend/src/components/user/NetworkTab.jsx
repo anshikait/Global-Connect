@@ -1,109 +1,173 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { connectionService, messageService } from '../../services/socialService.js';
+import { useAuth } from '../../context/AuthContext.jsx';
+import ProfileModal from '../ProfileModal.jsx';
 
-const NetworkTab = ({ profileData }) => {
+const NetworkTab = ({ profileData, onSwitchToMessages, onConnectionUpdate }) => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('connections');
   const [searchTerm, setSearchTerm] = useState('');
+  const [connections, setConnections] = useState([]);
+  const [connectionRequests, setConnectionRequests] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+  const [networkStats, setNetworkStats] = useState({
+    connections: 0,
+    pendingRequests: 0,
+    suggestions: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [selectedProfileId, setSelectedProfileId] = useState(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
-  const connectionRequests = [
-    {
-      id: 1,
-      name: 'Sarah Miller',
-      title: 'Senior Product Manager',
-      company: 'Google',
-      mutualConnections: 12,
-      avatar: 'SM',
-      avatarBg: 'bg-pink-100',
-      avatarText: 'text-pink-600'
-    },
-    {
-      id: 2,
-      name: 'Michael Chen',
-      title: 'Full Stack Developer',
-      company: 'Microsoft',
-      mutualConnections: 8,
-      avatar: 'MC',
-      avatarBg: 'bg-blue-100',
-      avatarText: 'text-blue-600'
+  // Load initial data on component mount
+  useEffect(() => {
+    loadAllInitialData();
+  }, []);
+
+  // Load data when tab changes (but not on initial mount)
+  useEffect(() => {
+    if (activeTab) {
+      loadData();
     }
-  ];
+  }, [activeTab]);
 
-  const connections = [
-    { id: 1, name: 'Alice Johnson', title: 'Product Manager', company: 'TechStart', avatar: 'AJ', avatarBg: 'bg-purple-100', avatarText: 'text-purple-600', status: 'Active now' },
-    { id: 2, name: 'Bob Smith', title: 'UX Designer', company: 'DesignCo', avatar: 'BS', avatarBg: 'bg-green-100', avatarText: 'text-green-600', status: '2h ago' },
-    { id: 3, name: 'Carol Brown', title: 'Data Scientist', company: 'DataFirm', avatar: 'CB', avatarBg: 'bg-orange-100', avatarText: 'text-orange-600', status: '1d ago' },
-    { id: 4, name: 'David Wilson', title: 'Backend Developer', company: 'CodeBase', avatar: 'DW', avatarBg: 'bg-indigo-100', avatarText: 'text-indigo-600', status: '3d ago' }
-  ];
-
-  const suggestions = [
-    {
-      id: 1,
-      name: 'Emma Rodriguez',
-      title: 'Frontend Developer',
-      company: 'Netflix',
-      mutualConnections: 5,
-      reason: 'Works at Netflix',
-      avatar: 'ER',
-      avatarBg: 'bg-red-100',
-      avatarText: 'text-red-600'
-    },
-    {
-      id: 2,
-      name: 'James Kim',
-      title: 'DevOps Engineer',
-      company: 'Amazon',
-      mutualConnections: 3,
-      reason: 'Similar background',
-      avatar: 'JK',
-      avatarBg: 'bg-yellow-100',
-      avatarText: 'text-yellow-600'
-    },
-    {
-      id: 3,
-      name: 'Lisa Wang',
-      title: 'Machine Learning Engineer',
-      company: 'Tesla',
-      mutualConnections: 7,
-      reason: 'You both know Alice Johnson',
-      avatar: 'LW',
-      avatarBg: 'bg-teal-100',
-      avatarText: 'text-teal-600'
+  const loadAllInitialData = async () => {
+    setLoading(true);
+    try {
+      // Load all data initially to get accurate counts for all tabs
+      await Promise.all([
+        loadNetworkStats(),
+        loadConnections(),
+        loadConnectionRequests(), 
+        loadSuggestions()
+      ]);
+    } catch (error) {
+      console.error('Failed to load initial data:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const events = [
-    {
-      id: 1,
-      title: 'Tech Networking Mixer',
-      date: 'Dec 15, 2024',
-      time: '6:00 PM',
-      location: 'Virtual Event',
-      attendees: 156,
-      type: 'Networking'
-    },
-    {
-      id: 2,
-      title: 'AI & Machine Learning Conference',
-      date: 'Dec 20, 2024',
-      time: '9:00 AM',
-      location: 'San Francisco, CA',
-      attendees: 489,
-      type: 'Conference'
-    },
-    {
-      id: 3,
-      title: 'Startup Pitch Night',
-      date: 'Dec 22, 2024',
-      time: '7:00 PM',
-      location: 'New York, NY',
-      attendees: 78,
-      type: 'Pitch Event'
+  const loadNetworkStats = async () => {
+    try {
+      const response = await connectionService.getNetworkStats();
+      if (response.success) {
+        console.log('Network stats loaded:', response.data);
+        setNetworkStats(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load network stats:', error);
     }
-  ];
+  };
+
+  const loadData = async () => {
+    // Don't show loading spinner for tab switches since we have initial data
+    try {
+      switch (activeTab) {
+        case 'connections':
+          await loadConnections();
+          break;
+        case 'requests':
+          await loadConnectionRequests();
+          break;
+        case 'suggestions':
+          await loadSuggestions();
+          break;
+      }
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    }
+  };
+
+  const loadConnections = async () => {
+    const response = await connectionService.getUserConnections(1, 20, searchTerm);
+    if (response.success) {
+      setConnections(response.data.connections);
+      // Update the connections count in stats
+      setNetworkStats(prev => ({
+        ...prev,
+        connections: response.data.connections.length
+      }));
+    }
+  };
+
+  const loadConnectionRequests = async () => {
+    const response = await connectionService.getConnectionRequests();
+    if (response.success) {
+      setConnectionRequests(response.data.requests);
+      // Update the pending requests count in stats
+      setNetworkStats(prev => ({
+        ...prev,
+        pendingRequests: response.data.requests.length
+      }));
+    }
+  };
+
+  const loadSuggestions = async () => {
+    const response = await connectionService.getConnectionSuggestions();
+    if (response.success) {
+      console.log('Suggestions loaded:', response.data.suggestions.length, 'items');
+      setSuggestions(response.data.suggestions);
+      // Update the suggestions count in stats
+      setNetworkStats(prev => ({
+        ...prev,
+        suggestions: response.data.suggestions.length
+      }));
+    }
+  };
+
+  const handleConnectionRequest = async (recipientId, action) => {
+    try {
+      if (action === 'send') {
+        await connectionService.sendConnectionRequest(recipientId);
+        alert('Connection request sent!');
+        await loadSuggestions(); // This will update the suggestions count
+        // Also refresh stats from server to be safe
+        await loadNetworkStats();
+        // Refresh dashboard stats
+        if (onConnectionUpdate) onConnectionUpdate();
+      } else if (action === 'accept' || action === 'decline') {
+        await connectionService.respondToConnectionRequest(recipientId, action);
+        alert(`Connection request ${action}ed!`);
+        await loadConnectionRequests(); // This will update the requests count
+        await loadConnections(); // This will update the connections count
+        // Refresh stats from server to ensure consistency
+        await loadNetworkStats();
+        // Refresh dashboard stats
+        if (onConnectionUpdate) onConnectionUpdate();
+      }
+    } catch (error) {
+      console.error('Failed to handle connection request:', error);
+      alert('Failed to process request. Please try again.');
+    }
+  };
+
+  const handleStartConversation = async (participantId) => {
+    try {
+      const response = await messageService.getOrCreateConversation(participantId);
+      if (response.success) {
+        // Switch to messages tab
+        if (onSwitchToMessages) {
+          onSwitchToMessages(response.data);
+        } else {
+          alert('Conversation started! Go to Messages tab to chat.');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to start conversation:', error);
+      alert('Failed to start conversation. Make sure you are connected to this user.');
+    }
+  };
+
+  const handleViewProfile = (userId) => {
+    setSelectedProfileId(userId);
+    setShowProfileModal(true);
+  };
 
   const filteredConnections = connections.filter(conn =>
-    conn.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conn.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conn.title.toLowerCase().includes(searchTerm.toLowerCase())
+    conn.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    conn.user?.role?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    conn.user?.bio?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -113,15 +177,15 @@ const NetworkTab = ({ profileData }) => {
         <h2 className="text-xl font-bold mb-4">Your Network</h2>
         <div className="grid grid-cols-3 gap-4">
           <div className="text-center">
-            <div className="text-2xl font-bold">{connections.length}</div>
+            <div className="text-2xl font-bold">{networkStats.connections}</div>
             <div className="text-sm text-blue-100">Connections</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold">{connectionRequests.length}</div>
+            <div className="text-2xl font-bold">{networkStats.pendingRequests}</div>
             <div className="text-sm text-blue-100">Pending Requests</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold">{suggestions.length}</div>
+            <div className="text-2xl font-bold">{networkStats.suggestions}</div>
             <div className="text-sm text-blue-100">Suggestions</div>
           </div>
         </div>
@@ -134,8 +198,7 @@ const NetworkTab = ({ profileData }) => {
             {[
               { id: 'connections', label: 'My Connections', count: connections.length },
               { id: 'requests', label: 'Requests', count: connectionRequests.length },
-              { id: 'suggestions', label: 'People You May Know', count: suggestions.length },
-              { id: 'events', label: 'Events', count: events.length }
+              { id: 'suggestions', label: 'People You May Know', count: suggestions.length }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -169,59 +232,98 @@ const NetworkTab = ({ profileData }) => {
                 </svg>
               </div>
 
-              {/* Connections List */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredConnections.map((connection) => (
-                  <div key={connection.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-12 h-12 ${connection.avatarBg} rounded-full flex items-center justify-center`}>
-                        <span className={`${connection.avatarText} font-semibold`}>
-                          {connection.avatar}
-                        </span>
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-2 text-gray-500">Loading connections...</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredConnections.length === 0 ? (
+                    <div className="col-span-2 text-center py-8">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
                       </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold">{connection.name}</h4>
-                        <p className="text-sm text-gray-600">{connection.title}</p>
-                        <p className="text-sm text-gray-500">{connection.company}</p>
-                        <p className="text-xs text-green-600">{connection.status}</p>
+                      <p className="text-gray-500">No connections found</p>
+                    </div>
+                  ) : (
+                    filteredConnections.map((connection) => (
+                      <div key={connection._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                            <span className="text-blue-600 font-semibold">
+                              {connection.user?.name?.split(' ').map(n => n[0]).join('') || 'U'}
+                            </span>
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-semibold">{connection.user?.name || 'Unknown User'}</h4>
+                            <p className="text-sm text-gray-600">{connection.user?.role || 'User'}</p>
+                            <p className="text-sm text-gray-500">{connection.user?.bio || 'No bio available'}</p>
+                            <p className="text-xs text-green-600">{connection.status || 'Connected'}</p>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex space-x-2">
+                          <button 
+                            onClick={() => handleStartConversation(connection.user._id)}
+                            className="flex-1 bg-blue-50 text-blue-600 px-3 py-2 rounded-lg text-sm hover:bg-blue-100 transition-colors"
+                          >
+                            Message
+                          </button>
+                          <button 
+                            onClick={() => handleViewProfile(connection.user._id)}
+                            className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50 transition-colors"
+                          >
+                            View Profile
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                    <div className="mt-3 flex space-x-2">
-                      <button className="flex-1 bg-blue-50 text-blue-600 px-3 py-2 rounded-lg text-sm hover:bg-blue-100 transition-colors">
-                        Message
-                      </button>
-                      <button className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50 transition-colors">
-                        View Profile
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           )}
 
           {activeTab === 'requests' && (
             <div className="space-y-4">
-              {connectionRequests.length > 0 ? (
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-2 text-gray-500">Loading requests...</p>
+                </div>
+              ) : connectionRequests.length > 0 ? (
                 connectionRequests.map((request) => (
-                  <div key={request.id} className="flex items-center justify-between border rounded-lg p-4">
+                  <div key={request._id} className="flex items-center justify-between border rounded-lg p-4">
                     <div className="flex items-center space-x-4">
-                      <div className={`w-12 h-12 ${request.avatarBg} rounded-full flex items-center justify-center`}>
-                        <span className={`${request.avatarText} font-semibold`}>
-                          {request.avatar}
+                      <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center">
+                        <span className="text-pink-600 font-semibold">
+                          {request.requester?.name?.split(' ').map(n => n[0]).join('') || 'U'}
                         </span>
                       </div>
                       <div>
-                        <h4 className="font-semibold">{request.name}</h4>
-                        <p className="text-sm text-gray-600">{request.title} at {request.company}</p>
-                        <p className="text-xs text-gray-500">{request.mutualConnections} mutual connections</p>
+                        <h4 className="font-semibold">{request.requester?.name || 'Unknown User'}</h4>
+                        <p className="text-sm text-gray-600">
+                          {request.requester?.role || 'User'} {request.requester?.bio && `• ${request.requester.bio.substring(0, 50)}...`}
+                        </p>
+                        <p className="text-xs text-gray-500">{request.mutualConnections || 0} mutual connections</p>
+                        {request.message && (
+                          <p className="text-sm text-gray-700 mt-1 italic">"{request.message}"</p>
+                        )}
                       </div>
                     </div>
                     <div className="flex space-x-2">
-                      <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors">
+                      <button 
+                        onClick={() => handleConnectionRequest(request._id, 'accept')}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors"
+                      >
                         Accept
                       </button>
-                      <button className="border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+                      <button 
+                        onClick={() => handleConnectionRequest(request._id, 'decline')}
+                        className="border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+                      >
                         Decline
                       </button>
                     </div>
@@ -242,80 +344,72 @@ const NetworkTab = ({ profileData }) => {
 
           {activeTab === 'suggestions' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {suggestions.map((suggestion) => (
-                  <div key={suggestion.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-12 h-12 ${suggestion.avatarBg} rounded-full flex items-center justify-center`}>
-                        <span className={`${suggestion.avatarText} font-semibold`}>
-                          {suggestion.avatar}
-                        </span>
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-2 text-gray-500">Loading suggestions...</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {suggestions.length === 0 ? (
+                    <div className="col-span-2 text-center py-8">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
                       </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold">{suggestion.name}</h4>
-                        <p className="text-sm text-gray-600">{suggestion.title}</p>
-                        <p className="text-sm text-gray-500">{suggestion.company}</p>
-                        <p className="text-xs text-blue-600">{suggestion.reason}</p>
-                        <p className="text-xs text-gray-500">{suggestion.mutualConnections} mutual connections</p>
+                      <p className="text-gray-500">No suggestions available</p>
+                    </div>
+                  ) : (
+                    suggestions.map((suggestion) => (
+                      <div key={suggestion._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                            <span className="text-red-600 font-semibold">
+                              {suggestion.name?.split(' ').map(n => n[0]).join('') || 'U'}
+                            </span>
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-semibold">{suggestion.name || 'Unknown User'}</h4>
+                            <p className="text-sm text-gray-600">{suggestion.role || 'User'}</p>
+                            <p className="text-sm text-gray-500">{suggestion.bio || 'No bio available'}</p>
+                            <p className="text-xs text-blue-600">{suggestion.reason || 'Similar background'}</p>
+                            <p className="text-xs text-gray-500">{suggestion.mutualConnections || 0} mutual connections</p>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex space-x-2">
+                          <button 
+                            onClick={() => handleConnectionRequest(suggestion._id, 'send')}
+                            className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors"
+                          >
+                            Connect
+                          </button>
+                          <button className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50 transition-colors">
+                            Dismiss
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                    <div className="mt-3 flex space-x-2">
-                      <button className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors">
-                        Connect
-                      </button>
-                      <button className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50 transition-colors">
-                        Dismiss
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           )}
 
-          {activeTab === 'events' && (
-            <div className="space-y-4">
-              {events.map((event) => (
-                <div key={event.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-lg">{event.title}</h4>
-                      <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <span>{event.date} at {event.time}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                          <span>{event.location}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2 mt-2">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          event.type === 'Networking' ? 'bg-blue-100 text-blue-800' :
-                          event.type === 'Conference' ? 'bg-green-100 text-green-800' :
-                          'bg-purple-100 text-purple-800'
-                        }`}>
-                          {event.type}
-                        </span>
-                        <span className="text-sm text-gray-500">{event.attendees} attending</span>
-                      </div>
-                    </div>
-                    <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors">
-                      RSVP
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+
         </div>
       </div>
+
+      {/* Profile Modal */}
+      <ProfileModal
+        userId={selectedProfileId}
+        isOpen={showProfileModal}
+        onClose={() => {
+          setShowProfileModal(false);
+          setSelectedProfileId(null);
+        }}
+        onSwitchToMessages={onSwitchToMessages}
+      />
     </div>
   );
 };

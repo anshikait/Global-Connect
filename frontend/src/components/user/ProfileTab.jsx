@@ -4,6 +4,7 @@ import api from '../../services/api';
 const ProfileTab = ({ profileData, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [resumeUploading, setResumeUploading] = useState(false);
+  const [profilePicUploading, setProfilePicUploading] = useState(false);
   const [formData, setFormData] = useState({
     name: profileData?.name || '',
     jobTitle: profileData?.jobTitle || '',
@@ -107,8 +108,109 @@ const ProfileTab = ({ profileData, onUpdate }) => {
     }
   };
 
+  // Profile picture upload
+  const handleProfilePicUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Please select a valid image file (JPEG, PNG, or WebP)');
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+
+    setProfilePicUploading(true);
+    const form = new FormData();
+    form.append('profilePic', file);
+
+    try {
+      const response = await api.post('/users/profile-pic', form, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      if (response.data.success) {
+        alert('Profile picture updated successfully!');
+        onUpdate();
+      }
+    } catch (error) {
+      console.error('Profile picture upload error:', error);
+      alert('Failed to upload profile picture');
+    } finally {
+      setProfilePicUploading(false);
+      event.target.value = '';
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Profile Picture Section */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex items-center space-x-6">
+          <div className="relative">
+            <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-blue-100 to-teal-100 flex items-center justify-center ring-4 ring-blue-50">
+              {profileData?.profilePic ? (
+                <img
+                  src={profileData.profilePic}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <svg className="w-12 h-12 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              )}
+            </div>
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Profile Picture</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Upload a professional photo to help others recognize you. Supported formats: JPG, PNG, WebP (max 5MB)
+            </p>
+            <div className="flex space-x-3">
+              <label className="relative cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfilePicUpload}
+                  className="hidden"
+                  disabled={profilePicUploading}
+                />
+                <span className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  profilePicUploading
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-blue-600 to-teal-600 text-white hover:from-blue-700 hover:to-teal-700'
+                }`}>
+                  {profilePicUploading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {profileData?.profilePic ? 'Change Photo' : 'Upload Photo'}
+                    </>
+                  )}
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Profile Info */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex justify-between items-start">

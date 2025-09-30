@@ -1,6 +1,8 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import connectDB from './config/db.js';
 import connectCloudinary from './config/cloudinary.js'
 import scheduleAwake from './utils/cronScheduler.js';
@@ -10,6 +12,9 @@ import './models/User.js';
 import './models/Recruiter.js';
 import './models/Job.js';
 import './models/JobApplication.js';
+import './models/Post.js';
+import './models/Connection.js';
+import './models/Message.js';
 
 // Route imports
 import authRoutes from './routes/authRoutes.js';
@@ -17,12 +22,28 @@ import userAuthRoutes from './routes/userAuthRoutes.js';
 import recruiterAuthRoutes from './routes/recruiterAuthRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import recruiterRoutes from './routes/recruiterRoutes.js';
+import postRoutes from './routes/postRoutes.js';
+import connectionRoutes from './routes/connectionRoutes.js';
+import messageRoutes from './routes/messageRoutes.js';
 
 // Load environment variables
 dotenv.config();
 
 // Initialize express app
 const app = express();
+const server = createServer(app);
+
+// Initialize Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+
+// Make io available to routes
+app.set('io', io);
 
 // Connect to database
 connectDB();
@@ -53,6 +74,9 @@ app.use('/api/auth/user', userAuthRoutes); // Dedicated user auth routes
 app.use('/api/auth/recruiter', recruiterAuthRoutes); // Dedicated recruiter auth routes
 app.use('/api/users', userRoutes);
 app.use('/api/recruiters', recruiterRoutes);
+app.use('/api/posts', postRoutes);
+app.use('/api/connections', connectionRoutes);
+app.use('/api/messages', messageRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
@@ -131,13 +155,60 @@ app.use('*', (req, res) => {
   });
 });
 
+// Socket.IO connection handling
+const connectedUsers = new Map();
+
+io.on('connection', (socket) => {
+  console.log(`User connected: ${socket.id}`);
+
+  // Handle user joining their room
+  socket.on('join_user_room', (userId) => {
+    socket.join(`user_${userId}`);
+    connectedUsers.set(userId, socket.id);
+    console.log(`User ${userId} joined their room`);
+  });
+
+  // Handle joining conversation room
+  socket.on('join_conversation', (conversationId) => {
+    socket.join(`conversation_${conversationId}`);
+    console.log(`User joined conversation: ${conversationId}`);
+  });
+
+  // Handle leaving conversation room
+  socket.on('leave_conversation', (conversationId) => {
+    socket.leave(`conversation_${conversationId}`);
+    console.log(`User left conversation: ${conversationId}`);
+  });
+
+  // Handle user typing indicator
+  socket.on('typing', (data) => {
+    socket.to(`conversation_${data.conversationId}`).emit('user_typing', {
+      userId: data.userId,
+      isTyping: data.isTyping
+    });
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    console.log(`User disconnected: ${socket.id}`);
+    // Remove user from connected users map
+    for (let [userId, socketId] of connectedUsers.entries()) {
+      if (socketId === socket.id) {
+        connectedUsers.delete(userId);
+        break;
+      }
+    }
+  });
+});
+
 // Start server
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌐 API URL: http://localhost:${PORT}`);
+  console.log(`🔌 Socket.IO enabled for real-time messaging`);
   
   // Start cron scheduler for keep-alive functionality
   scheduleAwake();
