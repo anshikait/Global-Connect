@@ -73,7 +73,7 @@ const HowItWorks = () => {
         {/* CTA Section */}
         <div className="text-center mt-16">
           <button 
-            onClick={() => window.location.href = '/signup'}
+            onClick={() => window.location.href = '/auth'}
             className="bg-gradient-to-r from-slate-800 to-teal-700 text-white px-10 py-4 rounded-lg font-semibold text-lg hover:from-slate-900 hover:to-teal-800 transition-all shadow-lg hover:shadow-xl"
           >
             Start Your Journey Today

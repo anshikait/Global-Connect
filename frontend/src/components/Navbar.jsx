@@ -53,16 +53,16 @@ const Navbar = () => {
             Features
           </button>
           <button 
-            onClick={() => scrollToSection('how-it-works')}
-            className="hover:text-blue-800 transition-colors cursor-pointer"
-          >
-            How It Works
-          </button>
-          <button 
             onClick={() => scrollToSection('jobs')}
             className="hover:text-blue-800 transition-colors cursor-pointer"
           >
             Jobs
+          </button>
+          <button 
+            onClick={() => scrollToSection('how-it-works')}
+            className="hover:text-blue-800 transition-colors cursor-pointer"
+          >
+            How It Works
           </button>
           <button 
             onClick={() => scrollToSection('testimonials')}

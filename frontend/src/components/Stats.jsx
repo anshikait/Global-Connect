@@ -67,7 +67,7 @@ const Stats = () => {
           </h3>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <button 
-              onClick={() => window.location.href = '/signup'}
+              onClick={() => window.location.href = '/auth'}
               className="bg-white text-slate-900 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition-colors shadow-lg"
             >
               Sign Up for Free

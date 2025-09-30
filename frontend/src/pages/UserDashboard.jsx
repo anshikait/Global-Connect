@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { userAuthService } from '../services/authService';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -14,19 +15,36 @@ import {
 
 const UserDashboard = () => {
   const { user, logout } = useAuth();
+  const location = useLocation();
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [jobToApply, setJobToApply] = useState(null);
   
-  // Get active tab from localStorage or default to 'feed'
+  // Get active tab from URL params or localStorage or default to 'feed'
   const [activeTab, setActiveTab] = useState(() => {
-    return localStorage.getItem('userDashboardTab') || 'feed';
+    const urlParams = new URLSearchParams(location.search);
+    const tabFromUrl = urlParams.get('tab');
+    return tabFromUrl || localStorage.getItem('userDashboardTab') || 'feed';
   });
   
   const [selectedConversation, setSelectedConversation] = useState(null);
 
   useEffect(() => {
     fetchUserProfile();
-  }, []);
+    
+    // Check for apply parameter in URL
+    const urlParams = new URLSearchParams(location.search);
+    const applyJobId = urlParams.get('apply');
+    const tabFromUrl = urlParams.get('tab');
+    
+    if (applyJobId) {
+      setJobToApply(applyJobId);
+    }
+    
+    if (tabFromUrl) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [location]);
 
   // Save active tab to localStorage whenever it changes
   useEffect(() => {
@@ -89,7 +107,7 @@ const UserDashboard = () => {
           {/* Main Content Area */}
           <div className="lg:col-span-3">
             {activeTab === 'feed' && <FeedTab />}
-            {activeTab === 'jobs' && <JobsTab profileData={profileData} onApplicationUpdate={() => window.dispatchEvent(new CustomEvent('refreshDashboardStats'))} />}
+            {activeTab === 'jobs' && <JobsTab profileData={profileData} jobToApply={jobToApply} onApplicationUpdate={() => window.dispatchEvent(new CustomEvent('refreshDashboardStats'))} />}
             {activeTab === 'messages' && <MessagesTab selectedConversation={selectedConversation} />}
             {activeTab === 'network' && <NetworkTab profileData={profileData} onSwitchToMessages={handleSwitchToMessages} onConnectionUpdate={() => window.dispatchEvent(new CustomEvent('refreshDashboardStats'))} />}
             {activeTab === 'profile' && <ProfileTab profileData={profileData} onUpdate={fetchUserProfile} />}

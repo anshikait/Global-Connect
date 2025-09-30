@@ -25,6 +25,7 @@ import recruiterRoutes from './routes/recruiterRoutes.js';
 import postRoutes from './routes/postRoutes.js';
 import connectionRoutes from './routes/connectionRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
+import jobRoutes from './routes/jobRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -77,6 +78,7 @@ app.use('/api/recruiters', recruiterRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/connections', connectionRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/jobs', jobRoutes); // Public job routes
 
 // Health check route
 app.get('/api/health', (req, res) => {
