@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { formatSalary } from '../../utils/currencyUtils';
 
-const JobsTab = ({ profileData }) => {
+const JobsTab = ({ profileData, onApplicationUpdate }) => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,6 +77,8 @@ const JobsTab = ({ profileData }) => {
       console.log('Application successful:', response.data);
       alert('Application submitted successfully!');
       fetchUserApplications(); // Refresh applications
+      // Refresh dashboard stats
+      if (onApplicationUpdate) onApplicationUpdate();
     } catch (error) {
       console.error('Error applying to job:', error);
       console.error('Error response:', error.response?.data);

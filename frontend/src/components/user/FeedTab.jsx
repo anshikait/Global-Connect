@@ -1,28 +1,137 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { postService } from '../../services/socialService.js';
+import { useAuth } from '../../context/AuthContext.jsx';
 
 const FeedTab = () => {
+  const { user } = useAuth();
   const [postContent, setPostContent] = useState('');
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [posting, setPosting] = useState(false);
   const [likedPosts, setLikedPosts] = useState(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
-  const handlePostSubmit = () => {
-    if (postContent.trim()) {
-      // Handle post submission
-      console.log('Posting:', postContent);
-      setPostContent('');
+  // Load feed posts
+  useEffect(() => {
+    loadFeedPosts();
+  }, []);
+
+  const loadFeedPosts = async () => {
+    try {
+      setLoading(true);
+      const response = await postService.getFeedPosts(currentPage, 10);
+      if (response.success) {
+        if (currentPage === 1) {
+          setPosts(response.data.posts);
+        } else {
+          setPosts(prev => [...prev, ...response.data.posts]);
+        }
+        setHasMore(response.data.pagination.hasMore);
+        
+        // Set initial liked posts
+        const liked = new Set();
+        response.data.posts.forEach(post => {
+          if (post.isLikedByUser) {
+            liked.add(post._id);
+          }
+        });
+        setLikedPosts(liked);
+      }
+    } catch (error) {
+      console.error('Failed to load feed posts:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const toggleLike = (postId) => {
-    const newLikedPosts = new Set(likedPosts);
-    if (newLikedPosts.has(postId)) {
-      newLikedPosts.delete(postId);
-    } else {
-      newLikedPosts.add(postId);
+  const handlePostSubmit = async () => {
+    if (postContent.trim() && !posting) {
+      try {
+        setPosting(true);
+        const response = await postService.createPost({
+          content: postContent.trim(),
+          visibility: 'public'
+        });
+        if (response.success) {
+          setPosts(prev => [response.data, ...prev]);
+          setPostContent('');
+        }
+      } catch (error) {
+        console.error('Failed to create post:', error);
+        alert('Failed to create post. Please try again.');
+      } finally {
+        setPosting(false);
+      }
     }
-    setLikedPosts(newLikedPosts);
   };
 
-  const posts = [
+  const toggleLike = async (postId) => {
+    try {
+      const response = await postService.toggleLikePost(postId);
+      if (response.success) {
+        const newLikedPosts = new Set(likedPosts);
+        if (response.data.action === 'liked') {
+          newLikedPosts.add(postId);
+        } else {
+          newLikedPosts.delete(postId);
+        }
+        setLikedPosts(newLikedPosts);
+        
+        // Update post in list
+        setPosts(prev => prev.map(post => 
+          post._id === postId 
+            ? { ...post, likeCount: response.data.likeCount, isLikedByUser: response.data.isLiked }
+            : post
+        ));
+      }
+    } catch (error) {
+      console.error('Failed to toggle like:', error);
+    }
+  };
+
+  const handleComment = async (postId, content) => {
+    if (!content.trim()) return;
+    
+    try {
+      const response = await postService.addComment(postId, content);
+      if (response.success) {
+        setPosts(prev => prev.map(post => 
+          post._id === postId 
+            ? { ...post, commentCount: response.data.commentCount, comments: [...(post.comments || []), response.data.comment] }
+            : post
+        ));
+      }
+    } catch (error) {
+      console.error('Failed to add comment:', error);
+    }
+  };
+
+  const handleShare = async (postId) => {
+    try {
+      const response = await postService.sharePost(postId);
+      if (response.success) {
+        setPosts(prev => prev.map(post => 
+          post._id === postId 
+            ? { ...post, shareCount: response.data.shareCount }
+            : post
+        ));
+        alert('Post shared successfully!');
+      }
+    } catch (error) {
+      console.error('Failed to share post:', error);
+    }
+  };
+
+  const loadMorePosts = async () => {
+    if (hasMore && !loading) {
+      setCurrentPage(prev => prev + 1);
+      await loadFeedPosts();
+    }
+  };
+
+  // Mock posts data for fallback
+  const mockPosts = [
     {
       id: 1,
       author: "TechCorp Solutions",
@@ -129,14 +238,14 @@ const FeedTab = () => {
               </div>
               <button 
                 onClick={handlePostSubmit}
-                disabled={!postContent.trim()}
+                disabled={!postContent.trim() || posting}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  postContent.trim() 
+                  postContent.trim() && !posting
                     ? 'bg-gradient-to-r from-blue-800 to-blue-900 text-white hover:from-blue-900 hover:to-blue-800' 
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                Post
+                {posting ? 'Posting...' : 'Post'}
               </button>
             </div>
           </div>
@@ -156,8 +265,16 @@ const FeedTab = () => {
         </div>
       </div>
 
+      {/* Loading State */}
+      {loading && posts.length === 0 && (
+        <div className="bg-white rounded-lg shadow-md p-6 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-500">Loading posts...</p>
+        </div>
+      )}
+
       {/* Posts Feed */}
-      {posts.map((post) => (
+      {(posts.length > 0 ? posts : mockPosts).map((post) => (
         <div key={post.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
           <div className="flex space-x-4">
             <div className={`w-12 h-12 ${post.avatarBg} rounded-full flex items-center justify-center`}>
@@ -165,32 +282,36 @@ const FeedTab = () => {
             </div>
             <div className="flex-1">
               <div className="flex items-center space-x-2">
-                <h4 className="font-semibold text-gray-900">{post.author}</h4>
-                {post.isCompany && (
+                <h4 className="font-semibold text-gray-900">
+                  {post.author?.name || post.author}
+                </h4>
+                {(post.isCompanyPost || post.isCompany) && (
                   <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">Company</span>
                 )}
-                <span className="text-gray-500 text-sm">• {post.time}</span>
+                <span className="text-gray-500 text-sm">
+                  • {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : post.time}
+                </span>
               </div>
               <p className="text-gray-700 mt-3 leading-relaxed">{post.content}</p>
               
               {/* Engagement Stats */}
               <div className="flex items-center space-x-4 mt-4 text-sm text-gray-500 border-b pb-3">
-                <span>{post.likes} likes</span>
-                <span>{post.comments} comments</span>
-                <span>{post.shares} shares</span>
+                <span>{post.likeCount || post.likes || 0} likes</span>
+                <span>{post.commentCount || post.comments?.length || 0} comments</span>
+                <span>{post.shareCount || post.shares || 0} shares</span>
               </div>
 
               {/* Action Buttons */}
               <div className="flex space-x-6 mt-3 text-sm">
                 <button 
-                  onClick={() => toggleLike(post.id)}
+                  onClick={() => toggleLike(post._id || post.id)}
                   className={`flex items-center space-x-1 py-2 px-3 rounded-lg transition-colors ${
-                    likedPosts.has(post.id) 
+                    likedPosts.has(post._id || post.id) 
                       ? 'text-blue-600 bg-blue-50' 
                       : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
                   }`}
                 >
-                  <span>{likedPosts.has(post.id) ? '👍' : '👍'}</span>
+                  <span>{likedPosts.has(post._id || post.id) ? '👍' : '👍'}</span>
                   <span>Like</span>
                 </button>
                 <button className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors">
@@ -212,11 +333,70 @@ const FeedTab = () => {
       ))}
 
       {/* Load More Button */}
-      <div className="text-center">
-        <button className="bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 transition-colors">
-          Load more posts
-        </button>
-      </div>
+      {hasMore && (
+        <div className="text-center">
+          <button 
+            onClick={loadMorePosts}
+            disabled={loading}
+            className="bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Loading...' : 'Load more posts'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Comment Button Component
+const CommentButton = ({ postId, onComment }) => {
+  const [showCommentBox, setShowCommentBox] = useState(false);
+  const [commentText, setCommentText] = useState('');
+
+  const handleSubmitComment = async () => {
+    if (commentText.trim()) {
+      await onComment(postId, commentText.trim());
+      setCommentText('');
+      setShowCommentBox(false);
+    }
+  };
+
+  return (
+    <div className="relative">
+      <button 
+        onClick={() => setShowCommentBox(!showCommentBox)}
+        className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
+      >
+        <span>💬</span>
+        <span>Comment</span>
+      </button>
+      
+      {showCommentBox && (
+        <div className="absolute top-full left-0 mt-2 w-80 bg-white border rounded-lg shadow-lg p-3 z-10">
+          <textarea
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            placeholder="Write a comment..."
+            className="w-full p-2 border rounded resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            rows="3"
+          />
+          <div className="flex justify-end space-x-2 mt-2">
+            <button
+              onClick={() => setShowCommentBox(false)}
+              className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmitComment}
+              disabled={!commentText.trim()}
+              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            >
+              Comment
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

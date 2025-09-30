@@ -248,8 +248,6 @@ export const getApplicationsReceived = async (req, res) => {
     const { status, page = 1, limit = 10 } = req.query;
     const recruiterId = req.user.id;
 
-    console.log('Fetching applications for recruiter:', recruiterId);
-
     // Build query
     let query = { recruiterId };
     if (status && status !== 'all') {
@@ -260,7 +258,7 @@ export const getApplicationsReceived = async (req, res) => {
     const totalApplications = await JobApplication.countDocuments(query);
 
     // Get applications with pagination
-    const applications = await JobApplication.find(query)
+    const applicationsData = await JobApplication.find(query)
       .populate({
         path: 'applicantId',
         select: 'name email profileImage phone'
@@ -273,16 +271,30 @@ export const getApplicationsReceived = async (req, res) => {
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
 
-    console.log(`Found ${applications.length} applications out of ${totalApplications} total`);
+    // Format applications for frontend
+    const applications = applicationsData.map(app => ({
+      _id: app._id,
+      applicantName: app.applicantId?.name || 'Unknown Applicant',
+      applicantEmail: app.applicantId?.email || '',
+      applicantProfileImage: app.applicantId?.profileImage || '',
+      applicantPhone: app.applicantId?.phone || '',
+      jobTitle: app.jobId?.title || 'Unknown Job',
+      jobLocation: app.jobId?.location || '',
+      companyName: app.jobId?.companyName || '',
+      status: app.status,
+      appliedAt: app.appliedAt,
+      resumeUrl: app.resumeUrl,
+      coverLetter: app.coverLetter,
+      createdAt: app.createdAt,
+      updatedAt: app.updatedAt
+    }));
 
     res.status(200).json({
       success: true,
-      data: {
-        applications,
-        totalApplications,
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(totalApplications / limit)
-      }
+      applications,
+      totalApplications,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalApplications / limit)
     });
 
   } catch (error) {
@@ -535,11 +547,24 @@ export const getRecruiterJobs = async (req, res) => {
       .limit(parseInt(limit))
       .skip((parseInt(page) - 1) * parseInt(limit));
 
+    // Get applicant counts for each job
+    const jobsWithCounts = await Promise.all(
+      jobs.map(async (job) => {
+        const applicantCount = await JobApplication.countDocuments({ 
+          jobId: job._id 
+        });
+        return {
+          ...job.toObject(),
+          applicantCount
+        };
+      })
+    );
+
     const totalJobs = await Job.countDocuments(query);
 
     res.status(200).json({
       success: true,
-      jobs,
+      jobs: jobsWithCounts,
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(totalJobs / parseInt(limit)),

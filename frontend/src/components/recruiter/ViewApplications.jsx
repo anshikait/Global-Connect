@@ -20,7 +20,8 @@ const ViewApplications = ({ profileData }) => {
       const response = await api.get('/recruiters/applications');
       console.log('Applications response:', response.data);
       
-      const applicationsData = response.data.data?.applications || [];
+      // Fix: Access applications directly from response.data, not response.data.data
+      const applicationsData = response.data.applications || [];
       console.log('Parsed applications:', applicationsData);
       console.log('Number of applications:', applicationsData.length);
       

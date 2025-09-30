@@ -53,28 +53,28 @@ const RecruiterDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-teal-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-gradient-to-r from-slate-800 via-blue-900 to-teal-900 shadow-lg">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-gray-900">Global Connect</h1>
-              <span className="text-gray-500">|</span>
-              <h2 className="text-lg text-gray-700">Recruiter Dashboard</h2>
+              <h1 className="text-2xl font-bold text-white hover:text-yellow-300 transition-colors cursor-pointer">Global Connect</h1>
+              <span className="text-slate-300">|</span>
+              <h2 className="text-lg text-slate-200">Recruiter Dashboard</h2>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Welcome, {profileData?.name || user?.name}</span>
+              <span className="text-sm text-slate-200">Welcome, <span className="text-cyan-300 font-medium">{profileData?.name || user?.name}</span></span>
               {profileData?.profileImage && (
                 <img
                   src={profileData.profileImage}
                   alt="Profile"
-                  className="w-8 h-8 rounded-full object-cover"
+                  className="w-8 h-8 rounded-full object-cover ring-2 ring-white/30"
                 />
               )}
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className="px-4 py-2 text-sm bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-lg hover:from-red-600 hover:to-pink-600 transition-all shadow-md hover:shadow-lg"
               >
                 Logout
               </button>
@@ -85,16 +85,16 @@ const RecruiterDashboard = () => {
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-64 bg-white shadow-sm min-h-[calc(100vh-80px)]">
-          <nav className="p-4">
-            <ul className="space-y-2">
+        <aside className="w-64 bg-white/80 backdrop-blur-sm shadow-lg border-r border-slate-200 min-h-[calc(100vh-80px)]">
+          <nav className="p-6">
+            <ul className="space-y-3">
               <li>
                 <button
                   onClick={() => navigate('/recruiter-dashboard/overview')}
-                  className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                  className={`w-full flex items-center px-4 py-3 text-left rounded-xl transition-all duration-200 ${
                     getActiveTab() === 'overview'
-                      ? 'bg-blue-50 text-blue-700 border-r-4 border-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50'
+                      ? 'bg-gradient-to-r from-blue-100 to-teal-100 text-slate-800 shadow-md border-l-4 border-blue-700'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
                   }`}
                 >
                   <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,10 +106,10 @@ const RecruiterDashboard = () => {
               <li>
                 <button
                   onClick={() => navigate('/recruiter-dashboard/manage-jobs')}
-                  className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                  className={`w-full flex items-center px-4 py-3 text-left rounded-xl transition-all duration-200 ${
                     getActiveTab() === 'manage-jobs'
-                      ? 'bg-blue-50 text-blue-700 border-r-4 border-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50'
+                      ? 'bg-gradient-to-r from-blue-100 to-teal-100 text-slate-800 shadow-md border-l-4 border-blue-700'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
                   }`}
                 >
                   <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -121,10 +121,10 @@ const RecruiterDashboard = () => {
               <li>
                 <button
                   onClick={() => navigate('/recruiter-dashboard/add-job')}
-                  className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                  className={`w-full flex items-center px-4 py-3 text-left rounded-xl transition-all duration-200 ${
                     getActiveTab() === 'add-job'
-                      ? 'bg-blue-50 text-blue-700 border-r-4 border-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50'
+                      ? 'bg-gradient-to-r from-blue-100 to-teal-100 text-slate-800 shadow-md border-l-4 border-blue-700'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
                   }`}
                 >
                   <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -136,10 +136,10 @@ const RecruiterDashboard = () => {
               <li>
                 <button
                   onClick={() => navigate('/recruiter-dashboard/applications')}
-                  className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                  className={`w-full flex items-center px-4 py-3 text-left rounded-xl transition-all duration-200 ${
                     getActiveTab() === 'applications'
-                      ? 'bg-blue-50 text-blue-700 border-r-4 border-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50'
+                      ? 'bg-gradient-to-r from-blue-100 to-teal-100 text-slate-800 shadow-md border-l-4 border-blue-700'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
                   }`}
                 >
                   <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -151,10 +151,10 @@ const RecruiterDashboard = () => {
               <li>
                 <button
                   onClick={() => navigate('/recruiter-dashboard/profile')}
-                  className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                  className={`w-full flex items-center px-4 py-3 text-left rounded-xl transition-all duration-200 ${
                     getActiveTab() === 'profile'
-                      ? 'bg-blue-50 text-blue-700 border-r-4 border-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50'
+                      ? 'bg-gradient-to-r from-blue-100 to-teal-100 text-slate-800 shadow-md border-l-4 border-blue-700'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
                   }`}
                 >
                   <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -168,7 +168,7 @@ const RecruiterDashboard = () => {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-8 bg-white/30 backdrop-blur-sm">
           <Routes>
             <Route path="/" element={<Navigate to="/recruiter-dashboard/overview" replace />} />
             <Route path="/overview" element={<RecruiterOverview profileData={profileData} />} />

@@ -37,7 +37,7 @@ const RecruiterOverview = ({ profileData }) => {
         rejectedApplications: 0
       });
       setRecentJobs(jobsRes.data.jobs || []);
-      setRecentApplications(applicationsRes.data.applications || []);
+      setRecentApplications(applicationsRes.data.data?.applications || []);
     } catch (error) {
       console.error('Error fetching overview data:', error);
       // Set default values on error

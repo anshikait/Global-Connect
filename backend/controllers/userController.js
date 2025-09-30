@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Job from '../models/Job.js';
 import JobApplication from '../models/JobApplication.js';
+import Connection from '../models/Connection.js';
 import { v2 as cloudinary } from 'cloudinary';
 // @desc    Get user profile
 // @route   GET /api/users/profile
@@ -19,6 +20,59 @@ export const getUserProfile = async (req, res) => {
 
   } catch (error) {
     console.error('Get user profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+// @desc    Get user profile by ID
+// @route   GET /api/users/profile/:userId
+// @access  Private (Users only)
+export const getUserProfileById = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID'
+      });
+    }
+
+    const user = await User.findById(userId)
+      .select('-password -jobApplications'); // Exclude sensitive data
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Get actual connections count from Connection model
+    const connectionsCount = await Connection.countDocuments({
+      $or: [
+        { requester: userId, status: 'accepted' },
+        { recipient: userId, status: 'accepted' }
+      ]
+    });
+
+    // Add connections count to user object
+    const userWithStats = {
+      ...user.toObject(),
+      connections: { length: connectionsCount }
+    };
+
+    res.status(200).json({
+      success: true,
+      data: { user: userWithStats }
+    });
+
+  } catch (error) {
+    console.error('Get user profile by ID error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -131,10 +185,23 @@ export const updateUserProfile = async (req, res) => {
 // @access  Private (Users only)
 export const uploadProfilePicture = async (req, res) => {
   try {
+    console.log('Profile picture upload request received');
+    console.log('File info:', req.file);
+    console.log('User ID:', req.user?.id);
+
     if (!req.file) {
       return res.status(400).json({
         success: false,
         message: 'Please upload an image'
+      });
+    }
+
+    // Validate file type
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedMimeTypes.includes(req.file.mimetype)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid file type. Please upload JPEG, PNG, or WebP images only.'
       });
     }
 
@@ -150,11 +217,15 @@ export const uploadProfilePicture = async (req, res) => {
     // Delete old profile picture from cloudinary if exists
     if (user.profilePic) {
       const publicId = user.profilePic.split('/').pop().split('.')[0];
-      await cloudinary.v2.uploader.destroy(`profile_pics/${publicId}`);
+      try {
+        await cloudinary.uploader.destroy(`profile_pics/${publicId}`);
+      } catch (deleteError) {
+        console.warn('Could not delete old profile picture:', deleteError);
+      }
     }
 
     // Upload new profile picture to cloudinary
-    const result = await cloudinary.v2.uploader.upload(req.file.path, {
+    const result = await cloudinary.uploader.upload(req.file.path, {
       folder: 'profile_pics',
       width: 200,
       height: 200,
@@ -176,9 +247,17 @@ export const uploadProfilePicture = async (req, res) => {
 
   } catch (error) {
     console.error('Upload profile picture error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      statusCode: error.statusCode
+    });
+    
     res.status(500).json({
       success: false,
-      message: 'Server error during image upload'
+      message: 'Server error during image upload',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 };
@@ -588,6 +667,163 @@ export const respondToConnectionRequest = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error'
+    });
+  }
+};
+
+// Get user dashboard statistics
+export const getDashboardStats = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Get user data
+    const user = await User.findById(userId);
+    
+    // Get actual connections count from Connection model
+    const connectionsCount = await Connection.countDocuments({
+      $or: [
+        { requester: userId, status: 'accepted' },
+        { recipient: userId, status: 'accepted' }
+      ]
+    });
+    
+    // Get application count
+    const applicationsCount = await JobApplication.countDocuments({ applicantId: userId });
+    
+    // Get saved jobs count
+    const savedJobsCount = user.savedJobs ? user.savedJobs.length : 0;
+    
+    // Calculate profile completeness
+    const profileFields = [
+      user.name,
+      user.email,
+      user.jobTitle,
+      user.location,
+      user.bio,
+      user.skills?.length > 0,
+      user.experience?.length > 0,
+      user.education?.length > 0,
+      user.resume
+    ];
+    
+    const completedFields = profileFields.filter(field => field).length;
+    const profileCompleteness = Math.round((completedFields / profileFields.length) * 100);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        connectionsCount: connectionsCount,
+        applicationsCount: applicationsCount,
+        savedJobsCount: savedJobsCount,
+        profileCompleteness: profileCompleteness,
+        isProfileComplete: profileCompleteness === 100,
+        hasResume: !!user.resume
+      }
+    });
+
+  } catch (error) {
+    console.error('Get dashboard stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get dashboard statistics',
+      error: error.message
+    });
+  }
+};
+
+// Get saved jobs
+export const getSavedJobs = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const user = await User.findById(userId)
+      .populate({
+        path: 'savedJobs',
+        populate: {
+          path: 'company',
+          select: 'name logo'
+        },
+        options: {
+          skip: skip,
+          limit: limit,
+          sort: { createdAt: -1 }
+        }
+      });
+
+    const totalSavedJobs = user.savedJobs?.length || 0;
+    const totalPages = Math.ceil(totalSavedJobs / limit);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        savedJobs: user.savedJobs || [],
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalJobs: totalSavedJobs,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get saved jobs error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get saved jobs',
+      error: error.message
+    });
+  }
+};
+
+// Toggle save job
+export const toggleSaveJob = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { jobId } = req.params;
+
+    const user = await User.findById(userId);
+    const job = await Job.findById(jobId);
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found'
+      });
+    }
+
+    const isJobSaved = user.savedJobs?.includes(jobId);
+
+    if (isJobSaved) {
+      // Remove from saved jobs
+      user.savedJobs = user.savedJobs.filter(id => id.toString() !== jobId);
+    } else {
+      // Add to saved jobs
+      if (!user.savedJobs) user.savedJobs = [];
+      user.savedJobs.push(jobId);
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: isJobSaved ? 'Job removed from saved list' : 'Job saved successfully',
+      data: {
+        isSaved: !isJobSaved,
+        savedJobsCount: user.savedJobs.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Toggle save job error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to toggle save job',
+      error: error.message
     });
   }
 };
