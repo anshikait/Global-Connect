@@ -69,6 +69,9 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Serve static files (resumes and other uploads)
+app.use('/uploads', express.static('uploads'));
+
 // API Routes
 app.use('/api/auth', authRoutes); // Legacy routes
 app.use('/api/auth/user', userAuthRoutes); // Dedicated user auth routes

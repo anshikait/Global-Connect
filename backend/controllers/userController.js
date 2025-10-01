@@ -269,14 +269,20 @@ export const uploadResume = async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-    // Delete old resume if exists
-    if (user.resume) {
-      const publicId = user.resume.split("/").pop().split(".")[0];
-      await cloudinary.uploader.destroy(`global-connect/resumes/${publicId}`, { resource_type: "raw" });
+    // Delete old resume file if exists
+    if (user.resume && user.resume.startsWith('/uploads/')) {
+      const fs = await import('fs');
+      const path = await import('path');
+      const oldFilePath = path.join(process.cwd(), user.resume);
+      if (fs.existsSync(oldFilePath)) {
+        fs.unlinkSync(oldFilePath);
+      }
     }
 
-    // CloudinaryStorage has already uploaded the file, just use the path
-    user.resume = req.file.path; // This is the Cloudinary URL
+    // Create the file URL for frontend access (local path)
+    const resumeUrl = `/uploads/resumes/${req.file.filename}`;
+    
+    user.resume = resumeUrl;
     user.resumeOriginalName = req.file.originalname;
     user.resumeUploadedAt = new Date();
     await user.save();
@@ -302,8 +308,15 @@ export const deleteResume = async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user || !user.resume) return res.status(404).json({ success: false, message: "No resume found" });
 
-    const publicId = user.resume.split("/").pop().split(".")[0];
-    await cloudinary.uploader.destroy(`global-connect/resumes/${publicId}`, { resource_type: "raw" });
+    // Delete local file if it exists
+    if (user.resume.startsWith('/uploads/')) {
+      const fs = await import('fs');
+      const path = await import('path');
+      const filePath = path.join(process.cwd(), user.resume);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
 
     user.resume = null;
     user.resumeOriginalName = null;
@@ -316,6 +329,7 @@ export const deleteResume = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
 // @desc    Get all available jobs
 // @route   GET /api/users/jobs
 // @access  Private (Users only)

@@ -91,20 +91,12 @@ const ProfileTab = ({ profileData, onUpdate }) => {
   // Resume view
   const handleResumeView = () => {
     if (profileData?.resume) {
-      window.open(profileData.resume, '_blank');
-    }
-  };
-
-  // Resume download
-  const handleResumeDownload = () => {
-    if (profileData?.resume) {
-      const link = document.createElement('a');
-      link.href = profileData.resume;
-      link.download = profileData.resumeOriginalName || 'resume.pdf';
-      link.setAttribute('target', '_blank');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Construct full URL for local files (remove /api from URL)
+      const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace('/api', '');
+      const resumeUrl = profileData.resume.startsWith('http') 
+        ? profileData.resume 
+        : `${baseUrl}${profileData.resume}`;
+      window.open(resumeUrl, '_blank');
     }
   };
 
@@ -338,7 +330,6 @@ const ProfileTab = ({ profileData, onUpdate }) => {
             </div>
             <div className="flex space-x-3">
               <button onClick={handleResumeView} className="text-blue-600 hover:underline">View</button>
-              <button onClick={handleResumeDownload} className="text-green-600 hover:underline">Download</button>
               <button onClick={handleResumeDelete} className="text-red-600 hover:underline">Delete</button>
             </div>
           </div>
