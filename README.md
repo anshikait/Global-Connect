@@ -329,7 +329,7 @@ This project was built by an amazing team of developers:
 - **Md Salman** - Frontend Developer
 - **Rahul Rawat** - Frontend Developer
 - **Devendra Singh** - Backend Developer
-- **Satyam Tripathi** - Project Lead & Full Stack Developer
+- **Satyam Tripathi** - Backend Developer
 
 Special thanks to all contributors who made this project possible! 🎉
 
@@ -339,5 +339,6 @@ Special thanks to all contributors who made this project possible! 🎉
 - **Contributors** who helped build and improve this platform
 
 ---
+
 
 **Built with ❤️ by the Global Connect Team**
