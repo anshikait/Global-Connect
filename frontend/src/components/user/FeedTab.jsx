@@ -20,10 +20,27 @@ const FeedTab = () => {
     loadFeedPosts();
   }, []);
 
+  // Optional: Auto-load more posts on scroll (infinite scroll)
+  useEffect(() => {
+    const handleScroll = () => {
+      if (
+        window.innerHeight + document.documentElement.scrollTop >= 
+        document.documentElement.offsetHeight - 1000 && // Load when 1000px from bottom
+        hasMore && 
+        !loading
+      ) {
+        loadMorePosts();
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [hasMore, loading]);
+
   const loadFeedPosts = async () => {
     try {
       setLoading(true);
-      const response = await postService.getFeedPosts(currentPage, 10);
+      const response = await postService.getFeedPosts(currentPage, 5);
       if (response.success) {
         if (currentPage === 1) {
           setPosts(response.data.posts);
@@ -183,74 +200,34 @@ const FeedTab = () => {
 
   const loadMorePosts = async () => {
     if (hasMore && !loading) {
-      setCurrentPage(prev => prev + 1);
-      await loadFeedPosts();
+      const nextPage = currentPage + 1;
+      setCurrentPage(nextPage);
+      
+      try {
+        setLoading(true);
+        const response = await postService.getFeedPosts(nextPage, 5);
+        if (response.success) {
+          setPosts(prev => [...prev, ...response.data.posts]);
+          setHasMore(response.data.pagination.hasMore);
+          
+          // Update liked posts
+          const liked = new Set(likedPosts);
+          response.data.posts.forEach(post => {
+            if (post.isLikedByUser) {
+              liked.add(post._id);
+            }
+          });
+          setLikedPosts(liked);
+        }
+      } catch (error) {
+        console.error('Failed to load more posts:', error);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
-  // Mock posts data for fallback
-  const mockPosts = [
-    {
-      id: 1,
-      author: "TechCorp Solutions",
-      avatar: "TC",
-      avatarBg: "bg-blue-100",
-      avatarText: "text-blue-600",
-      time: "2h",
-      content: "🚀 We're expanding our team! Looking for passionate Full Stack Developers to join our innovative projects. Remote-first culture with competitive benefits. Apply now! #Hiring #FullStack #RemoteWork",
-      likes: 142,
-      comments: 28,
-      isCompany: true
-    },
-    {
-      id: 2,
-      author: "Sarah Johnson",
-      avatar: "SJ",
-      avatarBg: "bg-purple-100",
-      avatarText: "text-purple-600",
-      time: "4h",
-      content: "Just completed my first project using React and Node.js! 🎉 The learning curve was steep, but the satisfaction of seeing everything work together is incredible. Thank you to everyone who helped me along the way! #ReactJS #NodeJS #Learning",
-      likes: 89,
-      comments: 12,
-      isCompany: false
-    },
-    {
-      id: 3,
-      author: "AI Innovations Ltd",
-      avatar: "AI",
-      avatarBg: "bg-green-100",
-      avatarText: "text-green-600",
-      time: "6h",
-      content: "🤖 The future of AI is here! Our latest research shows 78% improvement in machine learning efficiency. We're looking for AI researchers and data scientists to join our mission. #AI #MachineLearning #DataScience",
-      likes: 256,
-      comments: 45,
-      isCompany: true
-    },
-    {
-      id: 4,
-      author: "Alex Chen",
-      avatar: "AC",
-      avatarBg: "bg-orange-100",
-      avatarText: "text-orange-600",
-      time: "8h",
-      content: "Networking tip: Don't just connect, engage! I've learned more from commenting on posts and starting conversations than from sending connection requests. What's your best networking advice? 💡 #Networking #CareerTips",
-      likes: 178,
-      comments: 34,
-      isCompany: false
-    },
-    {
-      id: 5,
-      author: "Global Finance Corp",
-      avatar: "GF",
-      avatarBg: "bg-indigo-100",
-      avatarText: "text-indigo-600",
-      time: "12h",
-      content: "📊 Market Update: Tech sector shows 15% growth this quarter. We're seeing increased demand for cybersecurity professionals and cloud architects. Great time to upskill! #MarketUpdate #TechCareers #Cybersecurity",
-      likes: 298,
-      comments: 67,
-      isCompany: true
-    }
-  ];
+
 
   return (
     <div className="space-y-6">
@@ -365,7 +342,8 @@ const FeedTab = () => {
       )}
 
       {/* Posts Feed */}
-      {(posts.length > 0 ? posts : mockPosts).map((post) => (
+      {posts.length > 0 ? (
+        posts.map((post) => (
         <div key={post.id || post._id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
           <div className="flex space-x-4">
             <div className={`w-12 h-12 ${post.avatarBg || 'bg-blue-100'} rounded-full flex items-center justify-center`}>
@@ -531,18 +509,65 @@ const FeedTab = () => {
             </div>
           </div>
         </div>
-      ))}
+        ))
+      ) : (
+        !loading && (
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+            <div className="text-gray-400 mb-4">
+              <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No posts yet</h3>
+            <p className="text-gray-500 mb-4">Be the first to share something with your network!</p>
+            <button
+              onClick={() => document.querySelector('textarea').focus()}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Create First Post
+            </button>
+          </div>
+        )
+      )}
 
       {/* Load More Button */}
       {hasMore && (
-        <div className="text-center">
+        <div className="text-center py-4">
           <button 
             onClick={loadMorePosts}
             disabled={loading}
-            className="bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 mx-auto"
           >
-            {loading ? 'Loading...' : 'Load more posts'}
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-700"></div>
+                <span>Loading more posts...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                <span>Load 5 more posts</span>
+              </>
+            )}
           </button>
+          <p className="text-sm text-gray-500 mt-2">
+            Showing {posts.length} posts • Scroll down to auto-load more
+          </p>
+        </div>
+      )}
+
+      {/* End of posts indicator */}
+      {!hasMore && posts.length > 0 && (
+        <div className="text-center py-6">
+          <div className="text-gray-400 mb-2">
+            <svg className="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <p className="text-gray-500 text-sm">You've reached the end of your feed</p>
+          <p className="text-gray-400 text-xs mt-1">Total posts viewed: {posts.length}</p>
         </div>
       )}
     </div>

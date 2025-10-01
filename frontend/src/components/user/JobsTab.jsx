@@ -13,17 +13,21 @@ const JobsTab = ({ profileData, onApplicationUpdate }) => {
   const [applying, setApplying] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);
   const [showJobModal, setShowJobModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalJobs, setTotalJobs] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
     fetchJobs();
     fetchUserApplications();
   }, []);
 
-  const fetchJobs = async () => {
+  const fetchJobs = async (page = 1, resetJobs = true) => {
     try {
+      setLoading(true);
       const params = {
-        limit: 20,
-        page: 1,
+        limit: 6,
+        page: page,
         ...(searchTerm && { search: searchTerm }),
         ...(locationFilter && { location: locationFilter }),
         ...(typeFilter !== 'all' && { type: typeFilter }),
@@ -31,10 +35,22 @@ const JobsTab = ({ profileData, onApplicationUpdate }) => {
       };
 
       const response = await api.get('/users/jobs', { params });
-      setJobs(response.data.jobs || []);
+      const fetchedJobs = response.data.jobs || [];
+      
+      if (resetJobs) {
+        setJobs(fetchedJobs);
+      } else {
+        setJobs(prev => [...prev, ...fetchedJobs]);
+      }
+      
+      setTotalJobs(response.data.totalJobs || 0);
+      setHasMore(fetchedJobs.length === 6);
+      setCurrentPage(page);
     } catch (error) {
       console.error('Error fetching jobs:', error);
       setJobs([]);
+      setTotalJobs(0);
+      setHasMore(false);
     } finally {
       setLoading(false);
     }
@@ -49,9 +65,27 @@ const JobsTab = ({ profileData, onApplicationUpdate }) => {
     }
   };
 
+  const handleNextPage = () => {
+    if (hasMore) {
+      const nextPage = currentPage + 1;
+      fetchJobs(nextPage, true);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      const prevPage = currentPage - 1;
+      fetchJobs(prevPage, true);
+    }
+  };
+
+  const handlePageClick = (page) => {
+    fetchJobs(page, true);
+  };
+
   const handleSearch = () => {
-    setLoading(true);
-    fetchJobs();
+    setCurrentPage(1);
+    fetchJobs(1, true);
   };
 
   const handleApply = async (jobId) => {
@@ -289,11 +323,70 @@ const JobsTab = ({ profileData, onApplicationUpdate }) => {
             <span className="ml-2 text-gray-600">Loading jobs...</span>
           </div>
         ) : jobs.length > 0 ? (
-          <div className="space-y-4">
-            {jobs.map((job) => (
-              <JobCard key={job._id} job={job} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {jobs.map((job) => (
+                <JobCard key={job._id} job={job} />
+              ))}
+            </div>
+            
+            {/* Pagination Controls */}
+            <div className="mt-8 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+              <div className="text-sm text-gray-700">
+                Showing page {currentPage} • Total jobs: {totalJobs}
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handlePrevPage}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                
+                <div className="flex items-center space-x-1">
+                  {[...Array(Math.ceil(totalJobs / 6))].map((_, index) => {
+                    const page = index + 1;
+                    const isCurrentPage = page === currentPage;
+                    const showPage = page === 1 || page === Math.ceil(totalJobs / 6) || 
+                                   (page >= currentPage - 1 && page <= currentPage + 1);
+                    
+                    if (!showPage && page !== currentPage - 2 && page !== currentPage + 2) {
+                      return null;
+                    }
+                    
+                    if ((page === currentPage - 2 || page === currentPage + 2) && 
+                        page !== 1 && page !== Math.ceil(totalJobs / 6)) {
+                      return <span key={page} className="px-2 text-gray-400">...</span>;
+                    }
+                    
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => handlePageClick(page)}
+                        className={`px-3 py-2 text-sm font-medium rounded-lg ${
+                          isCurrentPage
+                            ? 'bg-blue-600 text-white'
+                            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                <button
+                  onClick={handleNextPage}
+                  disabled={!hasMore}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </>
         ) : (
           <div className="text-center py-8">
             <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
