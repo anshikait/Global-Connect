@@ -275,22 +275,15 @@ export const uploadResume = async (req, res) => {
       await cloudinary.uploader.destroy(`global-connect/resumes/${publicId}`, { resource_type: "raw" });
     }
 
-    // Upload new resume
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      resource_type: "raw",
-      folder: "global-connect/resumes",
-      public_id: `resume_${user._id}_${Date.now()}`,
-      format: "pdf",
-    });
-
-    user.resume = result.secure_url;
+    // CloudinaryStorage has already uploaded the file, just use the path
+    user.resume = req.file.path; // This is the Cloudinary URL
     user.resumeOriginalName = req.file.originalname;
     user.resumeUploadedAt = new Date();
     await user.save();
 
     res.json({
       success: true,
-      message: "Resume uploaded",
+      message: "Resume uploaded successfully",
       data: {
         resume: user.resume,
         resumeOriginalName: user.resumeOriginalName,

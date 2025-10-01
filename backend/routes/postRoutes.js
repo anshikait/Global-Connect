@@ -5,11 +5,13 @@ import {
   toggleLikePost,
   addComment,
   sharePost,
+  sendPost,
   getPostById,
   deletePost,
   getUserPosts
 } from '../controllers/postController.js';
 import { authenticate } from '../middleware/auth.js';
+import { uploadPostFiles } from '../config/multer.js';
 
 const router = express.Router();
 
@@ -17,7 +19,7 @@ const router = express.Router();
 router.use(authenticate);
 
 // Post routes
-router.post('/', createPost);
+router.post('/', uploadPostFiles, createPost);
 router.get('/feed', getFeedPosts);
 router.get('/user/:userId', getUserPosts);
 router.get('/:postId', getPostById);
@@ -27,5 +29,6 @@ router.delete('/:postId', deletePost);
 router.post('/:postId/like', toggleLikePost);
 router.post('/:postId/comment', addComment);
 router.post('/:postId/share', sharePost);
+router.post('/:postId/send', sendPost);
 
 export default router;

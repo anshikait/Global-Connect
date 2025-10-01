@@ -4,7 +4,20 @@ import API from './api.js';
 export const postService = {
   // Create a new post
   createPost: async (postData) => {
-    const response = await API.post('/posts', postData);
+    const config = {};
+    
+    // If postData is FormData (for file uploads), set appropriate headers
+    if (postData instanceof FormData) {
+      config.headers = {
+        'Content-Type': 'multipart/form-data',
+      };
+    } else {
+      config.headers = {
+        'Content-Type': 'application/json',
+      };
+    }
+    
+    const response = await API.post('/posts', postData, config);
     return response.data;
   },
 
@@ -41,6 +54,15 @@ export const postService = {
   // Share post
   sharePost: async (postId) => {
     const response = await API.post(`/posts/${postId}/share`);
+    return response.data;
+  },
+
+  // Send post to connections (share via message)
+  sendPost: async (postId, recipientIds, message = '') => {
+    const response = await API.post(`/posts/${postId}/send`, { 
+      recipientIds, 
+      message 
+    });
     return response.data;
   },
 

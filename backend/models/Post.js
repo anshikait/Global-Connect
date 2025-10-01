@@ -17,11 +17,7 @@ const postSchema = new mongoose.Schema({
   videos: [{
     type: String // Cloudinary URLs
   }],
-  documents: [{
-    url: String,
-    name: String,
-    type: String
-  }],
+
   likes: [{
     user: {
       type: mongoose.Schema.Types.ObjectId,

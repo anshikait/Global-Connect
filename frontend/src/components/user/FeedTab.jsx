@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { postService } from '../../services/socialService.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 
@@ -11,6 +11,9 @@ const FeedTab = () => {
   const [likedPosts, setLikedPosts] = useState(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [commentStates, setCommentStates] = useState({});
+  const fileInputRef = useRef(null);
 
   // Load feed posts
   useEffect(() => {
@@ -46,16 +49,29 @@ const FeedTab = () => {
   };
 
   const handlePostSubmit = async () => {
-    if (postContent.trim() && !posting) {
+    if ((postContent.trim() || selectedFiles.length > 0) && !posting) {
       try {
         setPosting(true);
-        const response = await postService.createPost({
-          content: postContent.trim(),
-          visibility: 'public'
+        
+        // Create FormData for file uploads
+        const formData = new FormData();
+        formData.append('content', postContent.trim());
+        formData.append('visibility', 'public');
+        
+        // Add files to FormData
+        selectedFiles.forEach((file, index) => {
+          if (file.type.startsWith('image/')) {
+            formData.append('images', file);
+          } else if (file.type.startsWith('video/')) {
+            formData.append('videos', file);
+          }
         });
+        
+        const response = await postService.createPost(formData);
         if (response.success) {
           setPosts(prev => [response.data, ...prev]);
           setPostContent('');
+          setSelectedFiles([]);
         }
       } catch (error) {
         console.error('Failed to create post:', error);
@@ -101,26 +117,68 @@ const FeedTab = () => {
             ? { ...post, commentCount: response.data.commentCount, comments: [...(post.comments || []), response.data.comment] }
             : post
         ));
+        
+        // Clear comment state for this post
+        setCommentStates(prev => ({
+          ...prev,
+          [postId]: { ...prev[postId], text: '', showBox: false }
+        }));
       }
     } catch (error) {
       console.error('Failed to add comment:', error);
+      alert('Failed to add comment. Please try again.');
     }
   };
 
-  const handleShare = async (postId) => {
-    try {
-      const response = await postService.sharePost(postId);
-      if (response.success) {
-        setPosts(prev => prev.map(post => 
-          post._id === postId 
-            ? { ...post, shareCount: response.data.shareCount }
-            : post
-        ));
-        alert('Post shared successfully!');
+  // Handle file selection
+  const handleFileSelect = (event) => {
+    const files = Array.from(event.target.files);
+    const validFiles = files.filter(file => {
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      const allowedTypes = [
+        'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+        'video/mp4', 'video/webm', 'video/ogg'
+      ];
+      
+      if (file.size > maxSize) {
+        alert(`File ${file.name} is too large. Maximum size is 10MB.`);
+        return false;
       }
-    } catch (error) {
-      console.error('Failed to share post:', error);
-    }
+      
+      if (!allowedTypes.includes(file.type)) {
+        alert(`File type ${file.type} is not supported.`);
+        return false;
+      }
+      
+      return true;
+    });
+    
+    setSelectedFiles(prev => [...prev, ...validFiles]);
+  };
+
+  // Remove selected file
+  const removeFile = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Toggle comment box
+  const toggleCommentBox = (postId) => {
+    setCommentStates(prev => ({
+      ...prev,
+      [postId]: {
+        ...prev[postId],
+        showBox: !prev[postId]?.showBox,
+        text: prev[postId]?.text || ''
+      }
+    }));
+  };
+
+  // Update comment text
+  const updateCommentText = (postId, text) => {
+    setCommentStates(prev => ({
+      ...prev,
+      [postId]: { ...prev[postId], text }
+    }));
   };
 
   const loadMorePosts = async () => {
@@ -142,7 +200,6 @@ const FeedTab = () => {
       content: "🚀 We're expanding our team! Looking for passionate Full Stack Developers to join our innovative projects. Remote-first culture with competitive benefits. Apply now! #Hiring #FullStack #RemoteWork",
       likes: 142,
       comments: 28,
-      shares: 15,
       isCompany: true
     },
     {
@@ -155,7 +212,6 @@ const FeedTab = () => {
       content: "Just completed my first project using React and Node.js! 🎉 The learning curve was steep, but the satisfaction of seeing everything work together is incredible. Thank you to everyone who helped me along the way! #ReactJS #NodeJS #Learning",
       likes: 89,
       comments: 12,
-      shares: 5,
       isCompany: false
     },
     {
@@ -168,7 +224,6 @@ const FeedTab = () => {
       content: "🤖 The future of AI is here! Our latest research shows 78% improvement in machine learning efficiency. We're looking for AI researchers and data scientists to join our mission. #AI #MachineLearning #DataScience",
       likes: 256,
       comments: 45,
-      shares: 32,
       isCompany: true
     },
     {
@@ -181,7 +236,6 @@ const FeedTab = () => {
       content: "Networking tip: Don't just connect, engage! I've learned more from commenting on posts and starting conversations than from sending connection requests. What's your best networking advice? 💡 #Networking #CareerTips",
       likes: 178,
       comments: 34,
-      shares: 22,
       isCompany: false
     },
     {
@@ -194,7 +248,6 @@ const FeedTab = () => {
       content: "📊 Market Update: Tech sector shows 15% growth this quarter. We're seeing increased demand for cybersecurity professionals and cloud architects. Great time to upskill! #MarketUpdate #TechCareers #Cybersecurity",
       likes: 298,
       comments: 67,
-      shares: 78,
       isCompany: true
     }
   ];
@@ -217,30 +270,68 @@ const FeedTab = () => {
               value={postContent}
               onChange={(e) => setPostContent(e.target.value)}
             />
+            
+            {/* Selected Files Preview */}
+            {selectedFiles.length > 0 && (
+              <div className="mt-3 p-3 border rounded-lg bg-gray-50">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Selected Files:</h4>
+                <div className="space-y-2">
+                  {selectedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-lg">
+                          {file.type.startsWith('image/') ? '📷' : 
+                           file.type.startsWith('video/') ? '🎥' : '❓'}
+                        </span>
+                        <span className="text-sm text-gray-700 truncate max-w-xs">
+                          {file.name}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => removeFile(index)}
+                        className="text-red-500 hover:text-red-700 p-1"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-between items-center mt-3">
               <div className="flex space-x-4">
-                <button className="flex items-center space-x-1 text-blue-800 hover:text-blue-900 text-sm transition-colors">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  multiple
+                  accept="image/*,video/*"
+                  className="hidden"
+                />
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center space-x-1 text-blue-800 hover:text-blue-900 text-sm transition-colors"
+                >
                   <span>📷</span>
                   <span>Photo</span>
                 </button>
-                <button className="flex items-center space-x-1 text-blue-800 hover:text-blue-900 text-sm transition-colors">
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center space-x-1 text-blue-800 hover:text-blue-900 text-sm transition-colors"
+                >
                   <span>🎥</span>
                   <span>Video</span>
-                </button>
-                <button className="flex items-center space-x-1 text-blue-800 hover:text-blue-900 text-sm transition-colors">
-                  <span>📄</span>
-                  <span>Document</span>
-                </button>
-                <button className="flex items-center space-x-1 text-blue-800 hover:text-blue-900 text-sm transition-colors">
-                  <span>🎉</span>
-                  <span>Celebrate</span>
                 </button>
               </div>
               <button 
                 onClick={handlePostSubmit}
-                disabled={!postContent.trim() || posting}
+                disabled={(!postContent.trim() && selectedFiles.length === 0) || posting}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  postContent.trim() && !posting
+                  (postContent.trim() || selectedFiles.length > 0) && !posting
                     ? 'bg-gradient-to-r from-blue-800 to-blue-900 text-white hover:from-blue-900 hover:to-blue-800' 
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
@@ -275,10 +366,12 @@ const FeedTab = () => {
 
       {/* Posts Feed */}
       {(posts.length > 0 ? posts : mockPosts).map((post) => (
-        <div key={post.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+        <div key={post.id || post._id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
           <div className="flex space-x-4">
-            <div className={`w-12 h-12 ${post.avatarBg} rounded-full flex items-center justify-center`}>
-              <span className={`${post.avatarText} font-semibold text-sm`}>{post.avatar}</span>
+            <div className={`w-12 h-12 ${post.avatarBg || 'bg-blue-100'} rounded-full flex items-center justify-center`}>
+              <span className={`${post.avatarText || 'text-blue-600'} font-semibold text-sm`}>
+                {post.avatar || post.author?.name?.charAt(0) || 'U'}
+              </span>
             </div>
             <div className="flex-1">
               <div className="flex items-center space-x-2">
@@ -294,11 +387,54 @@ const FeedTab = () => {
               </div>
               <p className="text-gray-700 mt-3 leading-relaxed">{post.content}</p>
               
+              {/* Post Attachments */}
+              {((post.images && post.images.length > 0) || 
+                (post.videos && post.videos.length > 0)) && (
+                <div className="mt-4">
+                  {/* Images */}
+                  {post.images && post.images.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      {post.images.slice(0, 4).map((image, index) => (
+                        <div key={index} className="relative">
+                          <img 
+                            src={image} 
+                            alt={`Post image ${index + 1}`}
+                            className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => window.open(image, '_blank')}
+                          />
+                          {index === 3 && post.images.length > 4 && (
+                            <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center text-white font-semibold">
+                              +{post.images.length - 4} more
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Videos */}
+                  {post.videos && post.videos.length > 0 && (
+                    <div className="mb-3">
+                      {post.videos.slice(0, 1).map((video, index) => (
+                        <video 
+                          key={index}
+                          src={video} 
+                          controls 
+                          className="w-full max-h-80 rounded-lg"
+                        />
+                      ))}
+                      {post.videos.length > 1 && (
+                        <p className="text-sm text-gray-500 mt-1">+{post.videos.length - 1} more video(s)</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              
               {/* Engagement Stats */}
               <div className="flex items-center space-x-4 mt-4 text-sm text-gray-500 border-b pb-3">
                 <span>{post.likeCount || post.likes || 0} likes</span>
                 <span>{post.commentCount || post.comments?.length || 0} comments</span>
-                <span>{post.shareCount || post.shares || 0} shares</span>
               </div>
 
               {/* Action Buttons */}
@@ -314,19 +450,84 @@ const FeedTab = () => {
                   <span>{likedPosts.has(post._id || post.id) ? '👍' : '👍'}</span>
                   <span>Like</span>
                 </button>
-                <button className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors">
-                  <span>�</span>
+                <button 
+                  onClick={() => toggleCommentBox(post._id || post.id)}
+                  className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
+                >
+                  <span>💬</span>
                   <span>Comment</span>
                 </button>
-                <button className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors">
-                  <span>�</span>
-                  <span>Share</span>
-                </button>
-                <button className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors">
-                  <span>�</span>
-                  <span>Send</span>
-                </button>
               </div>
+
+              {/* Comment Box */}
+              {commentStates[post._id || post.id]?.showBox && (
+                <div className="mt-4 border-t pt-4">
+                  <div className="flex space-x-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-blue-600 text-sm font-medium">
+                        {user?.name?.charAt(0) || 'U'}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <textarea
+                        value={commentStates[post._id || post.id]?.text || ''}
+                        onChange={(e) => updateCommentText(post._id || post.id, e.target.value)}
+                        placeholder="Write a comment..."
+                        className="w-full p-3 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        rows="2"
+                      />
+                      <div className="flex justify-end space-x-2 mt-2">
+                        <button
+                          onClick={() => toggleCommentBox(post._id || post.id)}
+                          className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleComment(post._id || post.id, commentStates[post._id || post.id]?.text)}
+                          disabled={!commentStates[post._id || post.id]?.text?.trim()}
+                          className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Comment
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Existing Comments */}
+              {post.comments && post.comments.length > 0 && (
+                <div className="mt-4 border-t pt-4 space-y-3">
+                  {post.comments.slice(0, 3).map((comment, index) => (
+                    <div key={comment._id || index} className="flex space-x-3">
+                      <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-gray-600 text-sm font-medium">
+                          {comment.user?.name?.charAt(0) || 'U'}
+                        </span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span className="font-medium text-sm text-gray-900">
+                              {comment.user?.name || 'User'}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {new Date(comment.createdAt || Date.now()).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-700">{comment.content}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {post.comments.length > 3 && (
+                    <button className="text-sm text-blue-600 hover:text-blue-800 ml-11">
+                      View all {post.comments.length} comments
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -342,59 +543,6 @@ const FeedTab = () => {
           >
             {loading ? 'Loading...' : 'Load more posts'}
           </button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Comment Button Component
-const CommentButton = ({ postId, onComment }) => {
-  const [showCommentBox, setShowCommentBox] = useState(false);
-  const [commentText, setCommentText] = useState('');
-
-  const handleSubmitComment = async () => {
-    if (commentText.trim()) {
-      await onComment(postId, commentText.trim());
-      setCommentText('');
-      setShowCommentBox(false);
-    }
-  };
-
-  return (
-    <div className="relative">
-      <button 
-        onClick={() => setShowCommentBox(!showCommentBox)}
-        className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
-      >
-        <span>💬</span>
-        <span>Comment</span>
-      </button>
-      
-      {showCommentBox && (
-        <div className="absolute top-full left-0 mt-2 w-80 bg-white border rounded-lg shadow-lg p-3 z-10">
-          <textarea
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            placeholder="Write a comment..."
-            className="w-full p-2 border rounded resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            rows="3"
-          />
-          <div className="flex justify-end space-x-2 mt-2">
-            <button
-              onClick={() => setShowCommentBox(false)}
-              className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmitComment}
-              disabled={!commentText.trim()}
-              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-            >
-              Comment
-            </button>
-          </div>
         </div>
       )}
     </div>

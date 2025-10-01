@@ -1,26 +1,85 @@
 import Post from '../models/Post.js';
 import User from '../models/User.js';
+import { v2 as cloudinary } from 'cloudinary';
+import fs from 'fs-extra';
 
 // Create a new post
 export const createPost = async (req, res) => {
   try {
     const { content, tags, visibility = 'public' } = req.body;
     const userId = req.user.id;
+    const files = req.files;
 
-    if (!content || content.trim().length === 0) {
+    // Check if we have content or files
+    if ((!content || content.trim().length === 0) && (!files || Object.keys(files).length === 0)) {
       return res.status(400).json({
         success: false,
-        message: 'Post content is required'
+        message: 'Post content or files are required'
       });
     }
 
     const postData = {
       author: userId,
-      content: content.trim(),
+      content: content ? content.trim() : '',
       visibility,
-      tags: tags ? tags.split(',').map(tag => tag.trim()) : []
+      tags: tags ? tags.split(',').map(tag => tag.trim()) : [],
+      images: [],
+      videos: []
     };
 
+    // Process uploaded files
+    if (files) {
+      try {
+        // Handle images
+        if (files.images) {
+          const imageUrls = [];
+          for (const file of files.images) {
+            const result = await cloudinary.uploader.upload(file.path, {
+              folder: 'global-connect/posts',
+              resource_type: 'image'
+            });
+            imageUrls.push(result.secure_url);
+            // Clean up temporary file
+            await fs.remove(file.path);
+          }
+          postData.images = imageUrls;
+        }
+
+        // Handle videos
+        if (files.videos) {
+          const videoUrls = [];
+          for (const file of files.videos) {
+            const result = await cloudinary.uploader.upload(file.path, {
+              folder: 'global-connect/posts',
+              resource_type: 'video'
+            });
+            videoUrls.push(result.secure_url);
+            // Clean up temporary file
+            await fs.remove(file.path);
+          }
+          postData.videos = videoUrls;
+        }
+
+
+      } catch (uploadError) {
+        console.error('File upload error:', uploadError);
+        // Clean up any remaining temporary files
+        if (files.images) {
+          for (const file of files.images) {
+            await fs.remove(file.path).catch(() => {});
+          }
+        }
+        if (files.videos) {
+          for (const file of files.videos) {
+            await fs.remove(file.path).catch(() => {});
+          }
+        }
+
+        throw uploadError;
+      }
+    }
+
+    console.log('Final postData before creating post:', JSON.stringify(postData, null, 2));
     const post = new Post(postData);
     await post.save();
 
@@ -319,6 +378,79 @@ export const deletePost = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete post',
+      error: error.message
+    });
+  }
+};
+
+// Send post to connections via message
+export const sendPost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { recipientIds, message = '' } = req.body;
+    const senderId = req.user.id;
+
+    if (!recipientIds || !Array.isArray(recipientIds) || recipientIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Recipient IDs are required'
+      });
+    }
+
+    const post = await Post.findById(postId)
+      .populate('author', 'name profilePic');
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found'
+      });
+    }
+
+    // Import Message model (you might need to adjust the import path)
+    const Message = (await import('../models/Message.js')).default;
+
+    // Create message content with post reference
+    const messageContent = message 
+      ? `${message}\n\nShared post: "${post.content.substring(0, 100)}${post.content.length > 100 ? '...' : ''}"`
+      : `Shared a post: "${post.content.substring(0, 100)}${post.content.length > 100 ? '...' : ''}"`;
+
+    // Send message to each recipient
+    const sentMessages = [];
+    for (const recipientId of recipientIds) {
+      try {
+        // Create or get conversation (simplified - you might want to use a more sophisticated approach)
+        const messageData = {
+          sender: senderId,
+          recipient: recipientId,
+          content: messageContent,
+          messageType: 'post_share',
+          sharedPost: postId
+        };
+
+        // For now, we'll create individual messages
+        // In a real app, you might want to create conversations first
+        const newMessage = new Message(messageData);
+        await newMessage.save();
+        sentMessages.push(newMessage);
+      } catch (error) {
+        console.error(`Failed to send message to ${recipientId}:`, error);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Post sent to ${sentMessages.length} connection(s)`,
+      data: {
+        sentCount: sentMessages.length,
+        totalRecipients: recipientIds.length
+      }
+    });
+  } catch (error) {
+    console.error('Send post error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send post',
       error: error.message
     });
   }

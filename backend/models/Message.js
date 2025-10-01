@@ -55,7 +55,7 @@ const messageSchema = new mongoose.Schema({
   },
   messageType: {
     type: String,
-    enum: ['text', 'image', 'file', 'video'],
+    enum: ['text', 'image', 'file', 'video', 'post_share'],
     default: 'text'
   },
   attachments: [{
@@ -91,6 +91,10 @@ const messageSchema = new mongoose.Schema({
   replyTo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Message'
+  },
+  sharedPost: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Post'
   }
 }, {
   timestamps: true

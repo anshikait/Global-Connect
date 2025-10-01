@@ -1,6 +1,6 @@
 import express from 'express';
 import { authenticate, authorize } from '../middleware/auth.js';
-import upload from '../config/multer.js';
+import upload, { uploadResume as resumeUploader } from '../config/multer.js';
 import {
   getUserProfile,
   getUserProfileById,
@@ -31,7 +31,7 @@ router.put('/profile', updateUserProfile);
 router.post('/profile-pic', upload.single('profilePic'), uploadProfilePicture);
 
 // Resume routes
-router.post('/resume', upload.single('resume'), uploadResume);
+router.post('/resume', resumeUploader.single('resume'), uploadResume);
 router.delete('/resume', deleteResume);
 
 // Job application routes
