@@ -68,7 +68,7 @@ const Footer = () => {
             © {new Date().getFullYear()} Global Connect. All rights reserved.
           </p>
           <p className="text-gray-400 text-sm mt-4 md:mt-0">
-            Developed by Group 2
+            Developed by Group 02
           </p>
         </div>
       </div>
