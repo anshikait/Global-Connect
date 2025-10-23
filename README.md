@@ -4,8 +4,8 @@ A comprehensive full-stack professional networking and job portal platform built
 
 ## 🌐 Live Demo
 
-- **Frontend**: [https://gncipl-global-connect.vercel.app/](https://gncipl-global-connect.vercel.app/)
-- **Backend API**: [https://gncipl-global-connect.onrender.com](https://gncipl-global-connect.onrender.com)
+- **Frontend**: 
+- **Backend API**:
 
 ## 🚀 Features
 
@@ -99,7 +99,7 @@ Before running this project, make sure you have:
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/rebel1321/GNCIPL_GLOBAL_CONNECT.git
+git clone 
 cd GNCIPL_GLOBAL_CONNECT
 ```
 
@@ -320,25 +320,12 @@ For support or questions, please contact:
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 👥 Contributors
-
-This project was built by an amazing team of developers:
-
-- **Kanika Tomer** - Backend Developer
-- **Shad Anwar** - Frontend Developer  
-- **Md Salman** - Frontend Developer
-- **Rahul Rawat** - Frontend Developer
-- **Devendra Singh** - Backend Developer
-- **Satyam Tripathi** - Backend Developer
-
-Special thanks to all contributors who made this project possible! 🎉
 
 ## �🙏 Acknowledgments
 
 - **GNCIPL Team** for project requirements and support
-- **Contributors** who helped build and improve this platform
-
----
-
 
 **Built with ❤️ by the Global Connect Team**
+
+## Previous Contributors
+https://github.com/rebel1321/GNCIPL_GLOBAL_CONNECT/tree/main
