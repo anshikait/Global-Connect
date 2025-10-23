@@ -86,13 +86,16 @@ export const getUserProfileById = async (req, res) => {
 export const updateUserProfile = async (req, res) => {
   try {
     const {
+      name,
       bio,
       jobTitle,
       experience,
       skills,
       education,
       certifications,
-      projects
+      projects,
+      location,
+      yearsOfExperience
     } = req.body;
 
     const user = await User.findById(req.user.id);
@@ -105,8 +108,14 @@ export const updateUserProfile = async (req, res) => {
     }
 
     // Update basic fields
-    if (bio !== undefined) user.bio = bio.trim();
-    if (jobTitle) user.jobTitle = jobTitle.trim();
+    if (name !== undefined) user.name = String(name).trim();
+    if (bio !== undefined) user.bio = String(bio).trim();
+    if (jobTitle !== undefined) user.jobTitle = String(jobTitle).trim();
+    if (location !== undefined) user.location = String(location).trim();
+    if (yearsOfExperience !== undefined) {
+      const parsedYears = Number(yearsOfExperience);
+      user.yearsOfExperience = Number.isNaN(parsedYears) ? user.yearsOfExperience : parsedYears;
+    }
 
     // Update experience
     if (experience && Array.isArray(experience)) {

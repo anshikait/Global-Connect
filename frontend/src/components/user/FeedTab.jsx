@@ -14,6 +14,10 @@ const FeedTab = () => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [commentStates, setCommentStates] = useState({});
   const fileInputRef = useRef(null);
+  const [profileData, setProfileData] = useState(null);
+  const [deletingPostId, setDeletingPostId] = useState(null);
+
+
 
   // Load feed posts
   useEffect(() => {
@@ -24,9 +28,9 @@ const FeedTab = () => {
   useEffect(() => {
     const handleScroll = () => {
       if (
-        window.innerHeight + document.documentElement.scrollTop >= 
+        window.innerHeight + document.documentElement.scrollTop >=
         document.documentElement.offsetHeight - 1000 && // Load when 1000px from bottom
-        hasMore && 
+        hasMore &&
         !loading
       ) {
         loadMorePosts();
@@ -36,6 +40,23 @@ const FeedTab = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [hasMore, loading]);
+
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        const res = await fetch("http://localhost:8080/api/user/profile", {
+          credentials: "include", // if you use cookie-based JWT
+        });
+        const data = await res.json();
+        console.log("Fetched user data:", data);
+        setProfileData(data);
+      } catch (error) {
+        console.error("Error fetching profile data:", error);
+      }
+    };
+
+    fetchProfileData();
+  }, []);
 
   const loadFeedPosts = async () => {
     try {
@@ -48,7 +69,7 @@ const FeedTab = () => {
           setPosts(prev => [...prev, ...response.data.posts]);
         }
         setHasMore(response.data.pagination.hasMore);
-        
+
         // Set initial liked posts
         const liked = new Set();
         response.data.posts.forEach(post => {
@@ -69,12 +90,12 @@ const FeedTab = () => {
     if ((postContent.trim() || selectedFiles.length > 0) && !posting) {
       try {
         setPosting(true);
-        
+
         // Create FormData for file uploads
         const formData = new FormData();
         formData.append('content', postContent.trim());
         formData.append('visibility', 'public');
-        
+
         // Add files to FormData
         selectedFiles.forEach((file, index) => {
           if (file.type.startsWith('image/')) {
@@ -83,7 +104,7 @@ const FeedTab = () => {
             formData.append('videos', file);
           }
         });
-        
+
         const response = await postService.createPost(formData);
         if (response.success) {
           setPosts(prev => [response.data, ...prev]);
@@ -110,10 +131,10 @@ const FeedTab = () => {
           newLikedPosts.delete(postId);
         }
         setLikedPosts(newLikedPosts);
-        
+
         // Update post in list
-        setPosts(prev => prev.map(post => 
-          post._id === postId 
+        setPosts(prev => prev.map(post =>
+          post._id === postId
             ? { ...post, likeCount: response.data.likeCount, isLikedByUser: response.data.isLiked }
             : post
         ));
@@ -125,16 +146,16 @@ const FeedTab = () => {
 
   const handleComment = async (postId, content) => {
     if (!content.trim()) return;
-    
+
     try {
       const response = await postService.addComment(postId, content);
       if (response.success) {
-        setPosts(prev => prev.map(post => 
-          post._id === postId 
+        setPosts(prev => prev.map(post =>
+          post._id === postId
             ? { ...post, commentCount: response.data.commentCount, comments: [...(post.comments || []), response.data.comment] }
             : post
         ));
-        
+
         // Clear comment state for this post
         setCommentStates(prev => ({
           ...prev,
@@ -156,20 +177,20 @@ const FeedTab = () => {
         'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
         'video/mp4', 'video/webm', 'video/ogg'
       ];
-      
+
       if (file.size > maxSize) {
         alert(`File ${file.name} is too large. Maximum size is 10MB.`);
         return false;
       }
-      
+
       if (!allowedTypes.includes(file.type)) {
         alert(`File type ${file.type} is not supported.`);
         return false;
       }
-      
+
       return true;
     });
-    
+
     setSelectedFiles(prev => [...prev, ...validFiles]);
   };
 
@@ -202,14 +223,14 @@ const FeedTab = () => {
     if (hasMore && !loading) {
       const nextPage = currentPage + 1;
       setCurrentPage(nextPage);
-      
+
       try {
         setLoading(true);
         const response = await postService.getFeedPosts(nextPage, 5);
         if (response.success) {
           setPosts(prev => [...prev, ...response.data.posts]);
           setHasMore(response.data.pagination.hasMore);
-          
+
           // Update liked posts
           const liked = new Set(likedPosts);
           response.data.posts.forEach(post => {
@@ -227,17 +248,59 @@ const FeedTab = () => {
     }
   };
 
+  const handleDeletePost = async (postId) => {
+    const confirmDelete = window.confirm("Are you sure you want to delete this post?");
+    if (!confirmDelete) return;
 
+    setDeletingPostId(postId);
+    try {
+      const response = await postService.deletePost(postId);
+      if (response.success) {
+        // Remove post from the UI
+        setPosts((prev) => prev.filter((p) => p._id !== postId));
+        alert("Post deleted successfully!");
+      } else {
+        alert(response.message || "Failed to delete post.");
+      }
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      alert("Something went wrong while deleting the post.");
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
       {/* Post Creation */}
+      {console.log("Profile Pic URL:", profileData?.profilePic)},
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex space-x-4">
           <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
+
+            {profileData?.profilePic ? (
+              <img
+                src={profileData.profilePic}
+                alt="Profile"
+                className="w-12 h-12 rounded-full object-cover border border-gray-300"
+              />
+            ) : (
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center border border-gray-300">
+                <svg
+                  className="w-6 h-6 text-blue-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                  />
+                </svg>
+              </div>
+            )}
           </div>
           <div className="flex-1">
             <textarea
@@ -247,7 +310,7 @@ const FeedTab = () => {
               value={postContent}
               onChange={(e) => setPostContent(e.target.value)}
             />
-            
+
             {/* Selected Files Preview */}
             {selectedFiles.length > 0 && (
               <div className="mt-3 p-3 border rounded-lg bg-gray-50">
@@ -257,8 +320,8 @@ const FeedTab = () => {
                     <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
                       <div className="flex items-center space-x-2">
                         <span className="text-lg">
-                          {file.type.startsWith('image/') ? '📷' : 
-                           file.type.startsWith('video/') ? '🎥' : '❓'}
+                          {file.type.startsWith('image/') ? '📷' :
+                            file.type.startsWith('video/') ? '🎥' : '❓'}
                         </span>
                         <span className="text-sm text-gray-700 truncate max-w-xs">
                           {file.name}
@@ -289,14 +352,14 @@ const FeedTab = () => {
                   accept="image/*,video/*"
                   className="hidden"
                 />
-                <button 
+                <button
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center space-x-1 text-blue-800 hover:text-blue-900 text-sm transition-colors"
                 >
                   <span>📷</span>
                   <span>Photo</span>
                 </button>
-                <button 
+                <button
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center space-x-1 text-blue-800 hover:text-blue-900 text-sm transition-colors"
                 >
@@ -304,14 +367,13 @@ const FeedTab = () => {
                   <span>Video</span>
                 </button>
               </div>
-              <button 
+              <button
                 onClick={handlePostSubmit}
                 disabled={(!postContent.trim() && selectedFiles.length === 0) || posting}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  (postContent.trim() || selectedFiles.length > 0) && !posting
-                    ? 'bg-gradient-to-r from-blue-800 to-blue-900 text-white hover:from-blue-900 hover:to-blue-800' 
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${(postContent.trim() || selectedFiles.length > 0) && !posting
+                  ? 'bg-gradient-to-r from-blue-800 to-blue-900 text-white hover:from-blue-900 hover:to-blue-800'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
               >
                 {posting ? 'Posting...' : 'Post'}
               </button>
@@ -344,171 +406,190 @@ const FeedTab = () => {
       {/* Posts Feed */}
       {posts.length > 0 ? (
         posts.map((post) => (
-        <div key={post.id || post._id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-          <div className="flex space-x-4">
-            <div className={`w-12 h-12 ${post.avatarBg || 'bg-blue-100'} rounded-full flex items-center justify-center`}>
-              <span className={`${post.avatarText || 'text-blue-600'} font-semibold text-sm`}>
-                {post.avatar || post.author?.name?.charAt(0) || 'U'}
-              </span>
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center space-x-2">
-                <h4 className="font-semibold text-gray-900">
-                  {post.author?.name || post.author}
-                </h4>
-                {(post.isCompanyPost || post.isCompany) && (
-                  <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">Company</span>
-                )}
-                <span className="text-gray-500 text-sm">
-                  • {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : post.time}
+          <div key={post.id || post._id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+            <div className="flex space-x-4">
+              <div className={`w-12 h-12 ${post.avatarBg || 'bg-blue-100'} rounded-full flex items-center justify-center`}>
+                <span className={`${post.avatarText || 'text-blue-600'} font-semibold text-sm`}>
+                  {post.avatar || post.author?.name?.charAt(0) || 'U'}
                 </span>
               </div>
-              <p className="text-gray-700 mt-3 leading-relaxed">{post.content}</p>
-              
-              {/* Post Attachments */}
-              {((post.images && post.images.length > 0) || 
-                (post.videos && post.videos.length > 0)) && (
-                <div className="mt-4">
-                  {/* Images */}
-                  {post.images && post.images.length > 0 && (
-                    <div className="grid grid-cols-2 gap-2 mb-3">
-                      {post.images.slice(0, 4).map((image, index) => (
-                        <div key={index} className="relative">
-                          <img 
-                            src={image} 
-                            alt={`Post image ${index + 1}`}
-                            className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                            onClick={() => window.open(image, '_blank')}
-                          />
-                          {index === 3 && post.images.length > 4 && (
-                            <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center text-white font-semibold">
-                              +{post.images.length - 4} more
+              <div className="flex-1">
+                <div className="flex items-center space-x-2">
+                  <h4 className="font-semibold text-gray-900">
+                    {post.author?.name || post.author}
+                  </h4>
+                  {(post.isCompanyPost || post.isCompany) && (
+                    <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">Company</span>
+                  )}
+                  <span className="text-gray-500 text-sm">
+                    • {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : post.time}
+                  </span>
+                </div>
+                <p className="text-gray-700 mt-3 leading-relaxed">{post.content}</p>
+
+                {/* Post Attachments */}
+                {((post.images && post.images.length > 0) ||
+                  (post.videos && post.videos.length > 0)) && (
+                    <div className="mt-4">
+                      {/* Images */}
+                      {post.images && post.images.length > 0 && (
+                        <div className="grid grid-cols-2 gap-2 mb-3">
+                          {post.images.slice(0, 4).map((image, index) => (
+                            <div key={index} className="relative">
+                              <img
+                                src={image}
+                                alt={`Post image ${index + 1}`}
+                                className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => window.open(image, '_blank')}
+                              />
+                              {index === 3 && post.images.length > 4 && (
+                                <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center text-white font-semibold">
+                                  +{post.images.length - 4} more
+                                </div>
+                              )}
                             </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Videos */}
+                      {post.videos && post.videos.length > 0 && (
+                        <div className="mb-3">
+                          {post.videos.slice(0, 1).map((video, index) => (
+                            <video
+                              key={index}
+                              src={video}
+                              controls
+                              className="w-full max-h-80 rounded-lg"
+                            />
+                          ))}
+                          {post.videos.length > 1 && (
+                            <p className="text-sm text-gray-500 mt-1">+{post.videos.length - 1} more video(s)</p>
                           )}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* Videos */}
-                  {post.videos && post.videos.length > 0 && (
-                    <div className="mb-3">
-                      {post.videos.slice(0, 1).map((video, index) => (
-                        <video 
-                          key={index}
-                          src={video} 
-                          controls 
-                          className="w-full max-h-80 rounded-lg"
-                        />
-                      ))}
-                      {post.videos.length > 1 && (
-                        <p className="text-sm text-gray-500 mt-1">+{post.videos.length - 1} more video(s)</p>
                       )}
                     </div>
                   )}
+
+                {/* Engagement Stats */}
+                <div className="flex items-center space-x-4 mt-4 text-sm text-gray-500 border-b pb-3">
+                  <span>{post.likeCount || post.likes || 0} likes</span>
+                  <span>{post.commentCount || post.comments?.length || 0} comments</span>
                 </div>
-              )}
-              
-              {/* Engagement Stats */}
-              <div className="flex items-center space-x-4 mt-4 text-sm text-gray-500 border-b pb-3">
-                <span>{post.likeCount || post.likes || 0} likes</span>
-                <span>{post.commentCount || post.comments?.length || 0} comments</span>
-              </div>
 
-              {/* Action Buttons */}
-              <div className="flex space-x-6 mt-3 text-sm">
-                <button 
-                  onClick={() => toggleLike(post._id || post.id)}
-                  className={`flex items-center space-x-1 py-2 px-3 rounded-lg transition-colors ${
-                    likedPosts.has(post._id || post.id) 
-                      ? 'text-blue-600 bg-blue-50' 
+                {/* Action Buttons */}
+                <div className="flex space-x-6 mt-3 text-sm">
+                  <button
+                    onClick={() => toggleLike(post._id || post.id)}
+                    className={`flex items-center space-x-1 py-2 px-3 rounded-lg transition-colors ${likedPosts.has(post._id || post.id)
+                      ? 'text-blue-600 bg-blue-50'
                       : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
-                  }`}
-                >
-                  <span>{likedPosts.has(post._id || post.id) ? '👍' : '👍'}</span>
-                  <span>Like</span>
-                </button>
-                <button 
-                  onClick={() => toggleCommentBox(post._id || post.id)}
-                  className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
-                >
-                  <span>💬</span>
-                  <span>Comment</span>
-                </button>
-              </div>
+                      }`}
+                  >
+                    <span>{likedPosts.has(post._id || post.id) ? '👍' : '👍'}</span>
+                    <span>Like</span>
+                  </button>
+                  <button
+                    onClick={() => toggleCommentBox(post._id || post.id)}
+                    className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
+                  >
+                    <span>💬</span>
+                    <span>Comment</span>
+                  </button>
+                  <div className="flex justify-between items-center">
+                    {/* Show delete button only if logged-in user is post author */}
+{/* logic needs to be added so that only the current user sees the delete option for its created post */}
+                    { profileData && (post.author === profileData._id || post.author?._id === profileData._id) && (
+                      <button
+                        onClick={() => handleDeletePost(post._id)}
+                        className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
+                      >
+                        <span>🗑</span>
+                        <span>Delete</span>
+                      </button>
+                    )}
 
-              {/* Comment Box */}
-              {commentStates[post._id || post.id]?.showBox && (
-                <div className="mt-4 border-t pt-4">
-                  <div className="flex space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-blue-600 text-sm font-medium">
-                        {user?.name?.charAt(0) || 'U'}
-                      </span>
-                    </div>
-                    <div className="flex-1">
-                      <textarea
-                        value={commentStates[post._id || post.id]?.text || ''}
-                        onChange={(e) => updateCommentText(post._id || post.id, e.target.value)}
-                        placeholder="Write a comment..."
-                        className="w-full p-3 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        rows="2"
-                      />
-                      <div className="flex justify-end space-x-2 mt-2">
-                        <button
-                          onClick={() => toggleCommentBox(post._id || post.id)}
-                          className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => handleComment(post._id || post.id, commentStates[post._id || post.id]?.text)}
-                          disabled={!commentStates[post._id || post.id]?.text?.trim()}
-                          className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Comment
-                        </button>
-                      </div>
+                    <div className="ml-4">
+                      <h3 className="font-semibold text-gray-900">   {post.author?.name}</h3>
+                      <p className="text-sm text-gray-500">{new Date(post.createdAt).toLocaleString()}</p>
                     </div>
                   </div>
                 </div>
-              )}
 
-              {/* Existing Comments */}
-              {post.comments && post.comments.length > 0 && (
-                <div className="mt-4 border-t pt-4 space-y-3">
-                  {post.comments.slice(0, 3).map((comment, index) => (
-                    <div key={comment._id || index} className="flex space-x-3">
-                      <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-gray-600 text-sm font-medium">
-                          {comment.user?.name?.charAt(0) || 'U'}
+                {/* Comment Box */}
+                {commentStates[post._id || post.id]?.showBox && (
+                  <div className="mt-4 border-t pt-4">
+                    <div className="flex space-x-3">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-blue-600 text-sm font-medium">
+                          {user?.name?.charAt(0) || 'U'}
                         </span>
                       </div>
                       <div className="flex-1">
-                        <div className="bg-gray-50 rounded-lg p-3">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <span className="font-medium text-sm text-gray-900">
-                              {comment.user?.name || 'User'}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {new Date(comment.createdAt || Date.now()).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-700">{comment.content}</p>
+                        <textarea
+                          value={commentStates[post._id || post.id]?.text || ''}
+                          onChange={(e) => updateCommentText(post._id || post.id, e.target.value)}
+                          placeholder="Write a comment..."
+                          className="w-full p-3 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          rows="2"
+                        />
+                        <div className="flex justify-end space-x-2 mt-2">
+                          <button
+                            onClick={() => toggleCommentBox(post._id || post.id)}
+                            className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => handleComment(post._id || post.id, commentStates[post._id || post.id]?.text)}
+                            disabled={!commentStates[post._id || post.id]?.text?.trim()}
+                            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Comment
+                          </button>
                         </div>
                       </div>
                     </div>
-                  ))}
-                  {post.comments.length > 3 && (
-                    <button className="text-sm text-blue-600 hover:text-blue-800 ml-11">
-                      View all {post.comments.length} comments
-                    </button>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+
+                {/* Existing Comments */}
+                {post.comments && post.comments.length > 0 && (
+                  <div className="mt-4 border-t pt-4 space-y-3">
+                    {post.comments.slice(0, 3).map((comment, index) => (
+                      <div key={comment._id || index} className="flex space-x-3">
+                        <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-gray-600 text-sm font-medium">
+                            {comment.user?.name?.charAt(0) || 'U'}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <span className="font-medium text-sm text-gray-900">
+                                {comment.user?.name || 'User'}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(comment.createdAt || Date.now()).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-700">{comment.content}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {post.comments.length > 3 && (
+                      <button className="text-sm text-blue-600 hover:text-blue-800 ml-11">
+                        View all {post.comments.length} comments
+                      </button>
+                    )}
+                  </div>
+                )}
+
+
+              </div>
             </div>
           </div>
-        </div>
         ))
       ) : (
         !loading && (
@@ -533,7 +614,7 @@ const FeedTab = () => {
       {/* Load More Button */}
       {hasMore && (
         <div className="text-center py-4">
-          <button 
+          <button
             onClick={loadMorePosts}
             disabled={loading}
             className="bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 mx-auto"

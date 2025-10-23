@@ -66,7 +66,9 @@ const ProfileSidebar = ({ profileData, setActiveTab }) => {
       <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-slate-100">
         <div className="text-center">
           <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-teal-100 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-blue-50">
+            
             {profileData?.profilePic ? (
+              
               <img
                 src={profileData.profilePic}
                 alt="Profile"

@@ -1,6 +1,7 @@
 // src/components/Navbar.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import logo from "../assets/logo.jpg"; // Assuming you have a logo image'
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -41,11 +42,15 @@ const Navbar = () => {
           className="text-2xl font-bold bg-gradient-to-r from-blue-800 to-teal-700 bg-clip-text text-transparent cursor-pointer hover:from-blue-900 hover:to-teal-800 transition-all"
           onClick={handleBrandClick}
         >
-          Global Connect
+          <img
+          src={logo}
+          alt="Global Connect Logo"
+          className="w-40 h-15"
+        />
         </h1>
 
         {/* Navigation links - Desktop */}
-        <div className="hidden md:flex gap-8 text-gray-700 font-medium">
+        <div className="hidden md:flex gap-8 text-gray-700 text-2xl font-bold">
           <button 
             onClick={() => scrollToSection('features')}
             className="hover:text-blue-800 transition-colors cursor-pointer"
@@ -75,13 +80,13 @@ const Navbar = () => {
         {/* Auth buttons - Desktop */}
         <div className="hidden md:flex gap-4 items-center">
           <button 
-            className="text-gray-700 hover:text-blue-800 font-medium transition-colors"
+            className="text-gray-700 hover:text-blue-800 transition-colors text-2xl font-bold"
             onClick={() => navigate('/auth')}
           >
             Login
           </button>
           <button 
-            className="bg-gradient-to-r from-blue-800 to-teal-700 text-white px-6 py-2 rounded-lg hover:from-blue-900 hover:to-teal-800 transition-all shadow-lg"
+            className="bg-gradient-to-r from-blue-800 to-teal-700 text-white px-6 py-2 rounded-lg hover:from-blue-900 hover:to-teal-800 transition-all shadow-lg text-xl"
             onClick={() => navigate('/auth')}
           >
             Sign Up

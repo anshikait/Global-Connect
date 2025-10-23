@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import connectDB from './config/db.js';
@@ -53,6 +54,7 @@ connectDB();
 connectCloudinary();
 
 // Middleware
+app.use(cookieParser());
 app.use(cors());
 
 // Disable caching

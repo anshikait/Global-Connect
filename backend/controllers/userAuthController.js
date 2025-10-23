@@ -196,7 +196,7 @@ export const getUserProfile = async (req, res) => {
         message: 'Access denied. This endpoint is for users only.'
       });
     }
-
+ 
     const user = await User.findById(req.user.id);
     
     if (!user) {

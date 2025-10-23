@@ -12,6 +12,8 @@ import EditJob from '../components/recruiter/EditJob';
 import ViewApplications from '../components/recruiter/ViewApplications';
 import RecruiterProfile from '../components/recruiter/RecruiterProfile';
 
+import logo from "../assets/logo.jpg";  
+
 const RecruiterDashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -55,16 +57,31 @@ const RecruiterDashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-teal-50">
       {/* Header */}
-      <header className="bg-gradient-to-r from-slate-800 via-blue-900 to-teal-900 shadow-lg">
+      <header className="bg-white shadow-lg">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-white hover:text-yellow-300 transition-colors cursor-pointer">Global Connect</h1>
-              <span className="text-slate-300">|</span>
-              <h2 className="text-lg text-slate-200">Recruiter Dashboard</h2>
+              {/* <h1 className="text-2xl font-bold text-white hover:text-yellow-300 transition-colors cursor-pointer">Global Connect</h1> */}
+
+              {/* Logo */}
+              <div className="flex items-center">
+                <h1
+                  className="cursor-pointer flex items-center space-x-2"
+                  onClick={() => setActiveTab('feed')}
+                >
+                  <img
+                    src={logo}
+                    alt="Global Connect Logo"
+                    className="w-36 sm:w-44 h-auto object-contain"
+                  />
+                </h1>
+              </div>
+
+              <span className="text-blue-300">|</span>
+              <h2 className="text-xl text-blue-600 ">Recruiter Dashboard</h2>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-slate-200">Welcome, <span className="text-cyan-300 font-medium">{profileData?.name || user?.name}</span></span>
+              <span className="text-lg text-blue-600">Welcome, <span className="text-indigo-900 text-xl font-medium">{profileData?.name || user?.name}</span></span>
               {profileData?.profileImage && (
                 <img
                   src={profileData.profileImage}
@@ -74,7 +91,7 @@ const RecruiterDashboard = () => {
               )}
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 text-sm bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-lg hover:from-red-600 hover:to-pink-600 transition-all shadow-md hover:shadow-lg"
+                className="px-4 py-2 text-medium bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-lg hover:from-red-600 hover:to-pink-600 transition-all shadow-md hover:shadow-lg"
               >
                 Logout
               </button>

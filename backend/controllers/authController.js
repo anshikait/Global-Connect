@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import Recruiter from '../models/Recruiter.js';
 import jwt from 'jsonwebtoken';
 import validator from 'validator';
+import bcrypt from 'bcryptjs';
 
 // Generate JWT Token
 const generateToken = (id, role) => {
@@ -72,6 +73,7 @@ export const register = async (req, res) => {
 
     let newAccount;
     let token;
+    //const hashedPassword = await bcrypt.hash(password, 10);
 
     if (role === 'user') {
       // Create user account
@@ -129,6 +131,7 @@ export const register = async (req, res) => {
         }
       });
     }
+
 
   } catch (error) {
     console.error('Register error:', error);
