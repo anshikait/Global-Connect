@@ -499,7 +499,8 @@ const FeedTab = () => {
                   <div className="flex justify-between items-center">
                     {/* Show delete button only if logged-in user is post author */}
 {/* logic needs to be added so that only the current user sees the delete option for its created post */}
-                    { profileData && (post.author === profileData._id || post.author?._id === profileData._id) && (
+{/* profileData && (post.author === profileData._id || post.author?._id === profileData._id) && */}
+                    { (
                       <button
                         onClick={() => handleDeletePost(post._id)}
                         className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors"
